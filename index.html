@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>背单词 · 双栏 + 生词本</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#ffffff; --line:#e5e7eb; --text:#111827; --sub:#6b7280;
+    --primary:#2563eb; --primary-weak:#eff6ff; --green:#059669; --green-weak:#ecfdf5;
+    --danger:#dc2626; --radius:12px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+  .app{max-width:1120px;margin:0 auto;padding:12px 12px 90px}
+  header.top{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+  .title{font-size:18px;font-weight:700;margin-right:auto}
+  .btn{border:1px solid var(--line);background:#fff;color:var(--text);border-radius:9px;
+    padding:7px 12px;font-size:13px;cursor:pointer;line-height:1.2;white-space:nowrap}
+  .btn:hover{background:#f9fafb}
+  .btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+  .btn.ghost{background:transparent}
+  .btn.danger{color:var(--danger);border-color:#fecaca}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+    background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:10px;margin-bottom:10px}
+  .toolbar input[type=search], .toolbar select{
+    border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;background:#fff;color:var(--text)}
+  .toolbar input[type=search]{flex:1 1 220px;min-width:160px}
+  .chkbox{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#4b5563;white-space:nowrap;cursor:pointer}
+  .chkbox input{accent-color:var(--primary);width:14px;height:14px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:780px){
+    .grid{grid-template-columns:1fr}
+    .col-body{max-height:none}
+    .nb-body{max-height:none}
+    .title{width:100%}
+    .toolbar input[type=search]{flex:1 1 100%}
+  }
+  .col{background:#fff;border:1px solid var(--line);border-radius:var(--radius);display:flex;flex-direction:column;min-height:220px}
+  .col-head{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}
+  .col-head .name{font-weight:600;font-size:14px}
+  .col-head .count{font-size:12px;color:var(--sub)}
+  .col-head .spacer{flex:1}
+  .col-tools{display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px dashed var(--line);background:#fcfcfd}
+  .sel-info{font-size:12px;color:var(--sub);align-self:center;margin-right:auto}
+  .col-body{padding:8px;display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow:auto}
+  .card{position:relative;display:flex;gap:9px;align-items:flex-start;
+    border:1px solid var(--line);border-radius:10px;padding:9px 10px;background:var(--card)}
+  .card.sel{border-color:var(--primary);background:var(--primary-weak)}
+  .card .chk{width:17px;height:17px;margin-top:3px;accent-color:var(--primary);flex:none;cursor:pointer}
+  .card .body{flex:1;min-width:0;cursor:default;-webkit-user-select:none;user-select:none}
+  .card .wrow{display:flex;align-items:center;gap:6px}
+  .card .w{font-weight:650;font-size:15px;word-break:break-word}
+  .spk{border:none;background:transparent;cursor:pointer;padding:0 3px;line-height:1;flex:none;
+    color:#9ca3af;display:inline-flex;align-items:center}
+  .spk:hover{color:var(--primary)}
+  .spk:active{transform:scale(.9)}
+  .card .ph{color:var(--sub);font-size:12px;font-style:italic;margin-top:1px;word-break:break-word}
+  .card .mn{font-size:13px;color:#374151;margin-top:5px;line-height:1.45;word-break:break-word}
+  /* 右栏：默认隐藏释义，长按显示 */
+  .col.done .card .mn{display:none}
+  .col.done .card.reveal .mn{display:block}
+  .col.done .hint{display:inline-block;font-size:11px;color:#9ca3af;margin-top:4px}
+  .col.done .card.reveal .hint{display:none}
+  .card .quick{position:absolute;right:8px;top:8px;border:1px solid var(--line);background:#fff;
+    border-radius:7px;font-size:11px;padding:3px 7px;cursor:pointer;color:var(--sub)}
+  .card .quick:hover{background:#f3f4f6}
+  .card .star{position:absolute;right:8px;bottom:8px;border:none;background:transparent;cursor:pointer;font-size:14px;color:#d1d5db}
+  .card .star.on{color:#f59e0b}
+  .empty{padding:24px 12px;text-align:center;color:var(--sub);font-size:13px}
+
+  /* 生词本 */
+  .nb{margin-top:14px;background:#fff;border:1px solid var(--line);border-radius:var(--radius)}
+  .nb-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line)}
+  .nb-head .name{font-weight:650;font-size:14px;margin-right:auto}
+  .nb-body{padding:8px;display:flex;flex-direction:column;gap:8px;max-height:44vh;overflow:auto}
+  .nb-day{font-size:12px;color:var(--sub);font-weight:600;padding:6px 4px 0}
+  .nb-item{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+  .nb-item .body{flex:1;min-width:0}
+  .nb-item .w{font-weight:600;font-size:14px}
+  .nb-item .ph{font-size:12px;color:var(--sub);font-style:italic}
+  .nb-item .mn{font-size:12.5px;color:#374151;margin-top:3px}
+
+  /* 弹窗 / 提示 */
+  .mask{position:fixed;inset:0;background:rgba(17,24,39,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+  .modal{background:#fff;border-radius:14px;max-width:560px;width:100%;max-height:82vh;
+    padding:16px;display:flex;flex-direction:column;overflow:hidden}
+  .modal h3{margin:0 0 10px;font-size:16px;flex:none}
+  .modal .msg{flex:1;min-height:0;overflow:auto;font-size:13px;color:#374151;
+    white-space:pre-wrap;line-height:1.65;padding-right:4px}
+  .modal .actions{flex:none;display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
+  .modal input{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px;margin-top:8px}
+  .folder-list{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+  .folder-list label{display:flex;gap:8px;align-items:center;border:1px solid var(--line);border-radius:9px;padding:8px 10px;cursor:pointer;font-size:13px}
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:#111827;color:#fff;
+    padding:9px 14px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:60}
+  .toast.show{opacity:1}
+  .hidden{display:none !important}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="title">背单词</div>
+    <button class="btn" id="btnHelp">使用说明</button>
+    <button class="btn" id="btnImport">导入词书</button>
+    <button class="btn" id="btnExport">导出备份</button>
+    <button class="btn" id="btnRestore">导入备份</button>
+    <button class="btn danger" id="btnClear">清空数据</button>
+  </header>
+
+  <div class="toolbar">
+    <select id="daySelect" title="按日期筛选"></select>
+    <input type="search" id="searchInput" placeholder="搜索单词或释义…">
+    <label class="chkbox" title="系统没有英文语音时，用在线发音代替（需联网）">
+      <input type="checkbox" id="onlineTts" checked> 在线发音
+    </label>
+    <span class="sel-info" id="totalInfo"></span>
+  </div>
+
+  <div class="grid">
+    <section class="col learning" id="colLearning">
+      <div class="col-head">
+        <span class="name">正在学</span>
+        <span class="count" id="cntLearning">0</span>
+        <span class="spacer"></span>
+        <button class="btn ghost" id="selAllLearning">全选</button>
+      </div>
+      <div class="col-tools">
+        <span class="sel-info" id="selInfoLearning">未选择</span>
+        <button class="btn" id="addNotebook" disabled>☆ 加入生词本</button>
+        <button class="btn primary" id="moveToDone" disabled>移到已完成 →</button>
+      </div>
+      <div class="col-body" id="bodyLearning"></div>
+    </section>
+
+    <section class="col done" id="colDone">
+      <div class="col-head">
+        <span class="name">已完成</span>
+        <span class="count" id="cntDone">0</span>
+        <span class="spacer"></span>
+        <button class="btn ghost" id="selAllDone">全选</button>
+      </div>
+      <div class="col-tools">
+        <span class="sel-info" id="selInfoDone">未选择</span>
+        <button class="btn" id="addNotebookDone" disabled>☆ 加入生词本</button>
+        <button class="btn primary" id="moveToLearning" disabled>← 移到正在学</button>
+      </div>
+      <div class="col-body" id="bodyDone"></div>
+    </section>
+  </div>
+
+  <section class="nb">
+    <div class="nb-head">
+      <span class="name">生词本</span>
+      <select id="folderSelect" title="切换文件夹"></select>
+      <button class="btn" id="btnNewFolder">新建文件夹</button>
+      <button class="btn danger" id="btnDelFolder">删除文件夹</button>
+      <select id="nbDaySelect" title="按天筛选生词"></select>
+    </div>
+    <div class="nb-body" id="nbBody"></div>
+  </section>
+</div>
+
+<input type="file" id="fileImport" accept=".csv,.xlsx,.xls" class="hidden">
+<input type="file" id="fileRestore" accept=".json" class="hidden">
+<div id="toast" class="toast"></div>
+
+<script>
+'use strict';
+
+/* ============================ 常量 & 工具 ============================ */
+const DB_NAME = 'vocab_db_v2';   // 独立命名空间，不与旧版互通
+const DB_VERSION = 1;
+const DEFAULT_FOLDER = 'default';
+
+const state = {
+  day: '',          // '' = 全部
+  keyword: '',
+  folder: DEFAULT_FOLDER,
+  nbDay: '',        // 生词本按天筛选
+  onlineTts: true,  // 无英文语音时是否用在线发音
+  words: [],        // 全量内存缓存
+  folders: [],
+  sel: { learning: new Set(), done: new Set() }
+};
+
+const $ = (id) => document.getElementById(id);
+const SPK_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" ' +
+  'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+  '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>' +
+  '<path d="M15.5 8.5a5 5 0 0 1 0 7"></path><path d="M18.5 5.5a9 9 0 0 1 0 13"></path></svg>';
+const toastEl = $('toast');
+let toastTimer = null;
+function toast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2200);
+}
+
+/* ============================ IndexedDB ============================ */
+let dbPromise = null;
+function openDB() {
+  if (dbPromise) return dbPromise;
+  dbPromise = new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains('words')) {
+        const s = db.createObjectStore('words', { keyPath: 'id' });
+        s.createIndex('day', 'day');
+        s.createIndex('status', 'status');
+        s.createIndex('folderId', 'folderId');
+      }
+      if (!db.objectStoreNames.contains('notebooks')) {
+        db.createObjectStore('notebooks', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('meta')) {
+        db.createObjectStore('meta', { keyPath: 'k' });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  return dbPromise;
+}
+
+function tx(store, mode) {
+  return openDB().then(db => {
+    const t = db.transaction(store, mode);
+    return { t, s: t.objectStore(store) };
+  });
+}
+
+function reqToPromise(req) {
+  return new Promise((res, rej) => { req.onsuccess = () => res(req.result); req.onerror = () => rej(req.error); });
+}
+
+async function dbGetAll(store) {
+  const { s } = await tx(store, 'readonly');
+  return reqToPromise(s.getAll());
+}
+
+async function dbPutMany(store, items) {
+  const { t, s } = await tx(store, 'readwrite');
+  items.forEach(it => s.put(it));
+  return new Promise((res, rej) => { t.oncomplete = () => res(); t.onerror = () => rej(t.error); });
+}
+
+async function dbDeleteMany(store, keys) {
+  const { t, s } = await tx(store, 'readwrite');
+  keys.forEach(k => s.delete(k));
+  return new Promise((res, rej) => { t.oncomplete = () => res(); t.onerror = () => rej(t.error); });
+}
+
+async function dbClear(store) {
+  const { t, s } = await tx(store, 'readwrite');
+  s.clear();
+  return new Promise((res, rej) => { t.oncomplete = () => res(); t.onerror = () => rej(t.error); });
+}
+
+/* ============================ 朗读（浏览器内置 TTS） ============================ */
+const tts = {
+  ok: typeof window.speechSynthesis !== 'undefined' && typeof window.SpeechSynthesisUtterance !== 'undefined',
+  voice: null,
+  hasEn: false,
+  hinted: false,
+  pick() {
+    if (!this.ok) return;
+    const vs = window.speechSynthesis.getVoices() || [];
+    const en = vs.filter(v => /^en/i.test(v.lang));
+    this.hasEn = en.length > 0;
+    this.voice =
+      en.find(v => /en[-_]US/i.test(v.lang) && /google|natural|siri|zira|aria|jenny/i.test(v.name)) ||
+      en.find(v => /en[-_]US/i.test(v.lang)) ||
+      en[0] ||
+      null;
+  }
+};
+if (tts.ok) {
+  tts.pick();
+  if (typeof window.speechSynthesis.addEventListener === 'function') {
+    window.speechSynthesis.addEventListener('voiceschanged', () => tts.pick());
+  } else {
+    window.speechSynthesis.onvoiceschanged = () => tts.pick();
+  }
+}
+
+function localSpeak(text) {
+  try {
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(String(text));
+    u.lang = 'en-US';
+    u.rate = 0.9;
+    u.pitch = 1;
+    if (tts.voice) u.voice = tts.voice;
+    window.speechSynthesis.speak(u);
+  } catch (e) {
+    toast('朗读失败：' + (e.message || e));
+  }
+}
+
+/* 在线发音（系统缺英文语音时使用，需联网） */
+function speakOnline(text) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const ok = () => { if (!settled) { settled = true; resolve(); } };
+    const bad = () => { if (!settled) { settled = true; reject(new Error('audio fail')); } };
+    try {
+      const a = new Audio('https://dict.youdao.com/dictvoice?audio=' +
+        encodeURIComponent(text) + '&type=2');
+      a.addEventListener('playing', ok);
+      a.addEventListener('error', bad);
+      setTimeout(bad, 4000);
+      const p = a.play();
+      if (p && typeof p.then === 'function') p.then(ok).catch(bad);
+    } catch (e) { bad(); }
+  });
+}
+
+let speaking = false;
+async function speak(text) {
+  if (!text || speaking) return;
+  if (!tts.ok) { toast('当前浏览器不支持朗读'); return; }
+  tts.pick();
+  speaking = true;
+  try {
+    if (tts.hasEn) { localSpeak(text); return; }
+    if (state.onlineTts) {
+      try {
+        await speakOnline(text);
+        if (!tts.onlineHinted) {
+          tts.onlineHinted = true;
+          toast('系统未装英文语音，已改用在线发音');
+        }
+        return;
+      } catch (e) { /* 网络不可用时退回本地 */ }
+    }
+    if (!tts.hinted) {
+      tts.hinted = true;
+      toast('系统未装英文语音，发音可能不准（可加装英语语音包）');
+    }
+    localSpeak(text);
+  } finally {
+    setTimeout(() => { speaking = false; }, 600);
+  }
+}
+
+async function dbGet(store, key) {
+  const { s } = await tx(store, 'readonly');
+  return reqToPromise(s.get(key));
+}
+
+/* ============================ 数据加载 ============================ */
+async function reloadAll() {
+  const [words, folders, ui] = await Promise.all([
+    dbGetAll('words'), dbGetAll('notebooks'), dbGet('meta', 'ui')
+  ]);
+  state.words = words;
+  state.folders = folders.length ? folders : [{ id: DEFAULT_FOLDER, name: '默认', createdAt: Date.now() }];
+  if (!folders.length) await dbPutMany('notebooks', state.folders);
+  if (ui && typeof ui.onlineTts === 'boolean') {
+    state.onlineTts = ui.onlineTts;
+    const cb = $('onlineTts');
+    if (cb) cb.checked = ui.onlineTts;
+  }
+  renderAll();
+}
+
+/* ============================ 渲染 ============================ */
+function currentFilter() {
+  const kw = state.keyword.trim().toLowerCase();
+  return state.words.filter(w => {
+    if (state.day && String(w.day) !== String(state.day)) return false;
+    if (kw) {
+      const hay = (w.word + ' ' + w.meaning).toLowerCase();
+      if (!hay.includes(kw)) return false;
+    }
+    return true;
+  });
+}
+
+function sortWords(list) {
+  return list.slice().sort((a, b) => {
+    const da = String(a.day), db2 = String(b.day);
+    if (da !== db2) return da < db2 ? -1 : 1;
+    return (a.createdAt || 0) - (b.createdAt || 0);
+  });
+}
+
+function makeCard(w, isDone) {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.dataset.id = w.id;
+
+  const chk = document.createElement('input');
+  chk.type = 'checkbox';
+  chk.className = 'chk';
+  chk.checked = state.sel[isDone ? 'done' : 'learning'].has(w.id);
+  if (chk.checked) card.classList.add('sel');
+  chk.addEventListener('change', () => {
+    const set = state.sel[isDone ? 'done' : 'learning'];
+    if (chk.checked) set.add(w.id); else set.delete(w.id);
+    card.classList.toggle('sel', chk.checked);
+    updateSelUI();
+  });
+  // 复选框上长按不触发释义
+  chk.addEventListener('pointerdown', e => e.stopPropagation());
+
+  const body = document.createElement('div');
+  body.className = 'body';
+  body.innerHTML =
+    '<div class="wrow"><span class="w"></span>' +
+    '<button class="spk" type="button" title="朗读" aria-label="朗读">' + SPK_SVG + '</button></div>' +
+    '<div class="ph"></div><div class="mn"></div>';
+  body.querySelector('.w').textContent = w.word;
+  body.querySelector('.ph').textContent = w.phonetic || '';
+  body.querySelector('.mn').textContent = w.meaning || '';
+
+  const spk = body.querySelector('.spk');
+  spk.addEventListener('click', (e) => { e.stopPropagation(); speak(w.word); });
+  spk.addEventListener('pointerdown', (e) => e.stopPropagation());
+  if (!isDone) {
+    body.querySelector('.w').addEventListener('click', () => speak(w.word));
+  }
+
+  if (isDone) {
+    const hint = document.createElement('span');
+    hint.className = 'hint';
+    hint.textContent = '长按查看释义';
+    body.appendChild(hint);
+    // 长按显示释义
+    let timer = null;
+    const show = () => { card.classList.add('reveal'); };
+    const hide = () => { card.classList.remove('reveal'); };
+    body.addEventListener('pointerdown', () => { timer = setTimeout(show, 320); });
+    body.addEventListener('pointerup', () => { clearTimeout(timer); hide(); });
+    body.addEventListener('pointerleave', () => { clearTimeout(timer); hide(); });
+    body.addEventListener('pointercancel', () => { clearTimeout(timer); hide(); });
+    body.addEventListener('contextmenu', e => e.preventDefault());
+  }
+
+  const quick = document.createElement('button');
+  quick.className = 'quick';
+  quick.type = 'button';
+  quick.title = isDone ? '移回正在学' : '移到已完成';
+  quick.textContent = isDone ? '←' : '→';
+  quick.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    await moveWords([w.id], isDone ? 'learning' : 'done');
+  });
+
+  const star = document.createElement('button');
+  star.className = 'star' + (w.folderId ? ' on' : '');
+  star.type = 'button';
+  star.title = '加入生词本';
+  star.textContent = w.folderId ? '★' : '☆';
+  star.addEventListener('click', (e) => { e.stopPropagation(); openFolderPicker([w.id]); });
+
+  card.append(chk, body, quick, star);
+  return card;
+}
+
+function renderColumns() {
+  const list = sortWords(currentFilter());
+  const learning = list.filter(w => w.status !== 'done');
+  const done = list.filter(w => w.status === 'done');
+
+  const bl = $('bodyLearning'), bd = $('bodyDone');
+  bl.innerHTML = ''; bd.innerHTML = '';
+
+  if (!learning.length) bl.innerHTML = '<div class="empty">暂无单词</div>';
+  else learning.forEach(w => bl.appendChild(makeCard(w, false)));
+
+  if (!done.length) bd.innerHTML = '<div class="empty">暂无单词</div>';
+  else done.forEach(w => bd.appendChild(makeCard(w, true)));
+
+  $('cntLearning').textContent = learning.length;
+  $('cntDone').textContent = done.length;
+  $('totalInfo').textContent = `共 ${state.words.length} 词 · 当前筛选 ${list.length}`;
+  updateSelUI();
+}
+
+function renderDaySelect() {
+  const sel = $('daySelect');
+  const days = [...new Set(state.words.map(w => String(w.day)))].sort();
+  const cur = state.day;
+  sel.innerHTML = '<option value="">全部日期</option>' +
+    days.map(d => `<option value="${escapeAttr(d)}">${escapeHtml(d)}</option>`).join('');
+  sel.value = days.includes(cur) ? cur : '';
+  state.day = sel.value;
+
+  const nb = $('nbDaySelect');
+  const nbDays = [...new Set(state.words.filter(w => w.folderId).map(w => String(w.day)))].sort();
+  nb.innerHTML = '<option value="">全部日期</option>' +
+    nbDays.map(d => `<option value="${escapeAttr(d)}">${escapeHtml(d)}</option>`).join('');
+  nb.value = nbDays.includes(state.nbDay) ? state.nbDay : '';
+  state.nbDay = nb.value;
+}
+
+function renderFolders() {
+  const sel = $('folderSelect');
+  sel.innerHTML = state.folders.map(f =>
+    `<option value="${escapeAttr(f.id)}">${escapeHtml(f.name)}</option>`).join('');
+  if (!state.folders.some(f => f.id === state.folder)) state.folder = state.folders[0].id;
+  sel.value = state.folder;
+}
+
+function renderNotebook() {
+  const box = $('nbBody');
+  let items = state.words.filter(w => w.folderId === state.folder);
+  if (state.nbDay) items = items.filter(w => String(w.day) === String(state.nbDay));
+  items = sortWords(items);
+
+  if (!items.length) {
+    box.innerHTML = '<div class="empty">这个文件夹还没有生词</div>';
+    return;
+  }
+  box.innerHTML = '';
+  let lastDay = null;
+  items.forEach(w => {
+    const d = String(w.day);
+    if (d !== lastDay) {
+      lastDay = d;
+      const h = document.createElement('div');
+      h.className = 'nb-day';
+      h.textContent = d;
+      box.appendChild(h);
+    }
+    const row = document.createElement('div');
+    row.className = 'nb-item';
+    row.innerHTML = '<div class="body"><div class="wrow"><span class="w"></span>' +
+      '<button class="spk" type="button" title="朗读" aria-label="朗读">' + SPK_SVG + '</button></div>' +
+      '<div class="ph"></div><div class="mn"></div></div>';
+    row.querySelector('.w').textContent = w.word;
+    row.querySelector('.ph').textContent = w.phonetic || '';
+    row.querySelector('.mn').textContent = w.meaning || '';
+    row.querySelector('.spk').addEventListener('click', (e) => { e.stopPropagation(); speak(w.word); });
+    const rm = document.createElement('button');
+    rm.className = 'btn danger';
+    rm.textContent = '移出';
+    rm.addEventListener('click', async () => {
+      const upd = { ...w, folderId: null };
+      await dbPutMany('words', [upd]);
+      await reloadAll();
+      toast('已移出生词本');
+    });
+    row.appendChild(rm);
+    box.appendChild(row);
+  });
+}
+
+function renderAll() {
+  renderDaySelect();
+  renderFolders();
+  renderColumns();
+  renderNotebook();
+}
+
+/* ============================ 选择 & 转移 ============================ */
+function visibleIds(isDone) {
+  return sortWords(currentFilter())
+    .filter(w => (w.status === 'done') === isDone)
+    .map(w => w.id);
+}
+
+function updateSelUI() {
+  const L = state.sel.learning, D = state.sel.done;
+  $('selInfoLearning').textContent = L.size ? `已选 ${L.size} 项` : '未选择';
+  $('selInfoDone').textContent = D.size ? `已选 ${D.size} 项` : '未选择';
+  $('moveToDone').disabled = L.size === 0;
+  $('moveToLearning').disabled = D.size === 0;
+  $('addNotebook').disabled = L.size === 0;
+  $('addNotebookDone').disabled = D.size === 0;
+}
+
+async function moveWords(ids, target) {
+  if (!ids.length) return;
+  const map = new Map(state.words.map(w => [w.id, w]));
+  const upd = ids.filter(id => map.has(id)).map(id => ({ ...map.get(id), status: target }));
+  await dbPutMany('words', upd);
+  state.sel.learning.clear();
+  state.sel.done.clear();
+  await reloadAll();
+  toast(`已移动 ${upd.length} 个单词`);
+}
+
+/* ============================ 生词本操作 ============================ */
+function openModal({ title, bodyHTML, input, actions }) {
+  const mask = document.createElement('div');
+  mask.className = 'mask';
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.innerHTML = `<h3></h3><div class="msg"></div>`;
+  modal.querySelector('h3').textContent = title;
+  if (bodyHTML) modal.querySelector('.msg').innerHTML = bodyHTML;
+  let inputEl = null;
+  if (input) {
+    inputEl = document.createElement('input');
+    inputEl.type = 'text';
+    inputEl.placeholder = input.placeholder || '';
+    inputEl.value = input.value || '';
+    modal.appendChild(inputEl);
+  }
+  const acts = document.createElement('div');
+  acts.className = 'actions';
+  actions.forEach(a => {
+    const b = document.createElement('button');
+    b.className = 'btn' + (a.primary ? ' primary' : '') + (a.danger ? ' danger' : '');
+    b.textContent = a.text;
+    b.addEventListener('click', () => { mask.remove(); a.onClick && a.onClick(inputEl); });
+    acts.appendChild(b);
+  });
+  modal.appendChild(acts);
+  mask.appendChild(modal);
+  mask.addEventListener('click', e => { if (e.target === mask) mask.remove(); });
+  document.body.appendChild(mask);
+  if (inputEl) setTimeout(() => inputEl.focus(), 30);
+  return mask;
+}
+
+function openFolderPicker(ids) {
+  if (!ids.length) return;
+  const listHTML = state.folders.map(f =>
+    `<label><input type="radio" name="fid" value="${escapeAttr(f.id)}" ${f.id === state.folder ? 'checked' : ''}>
+      ${escapeHtml(f.name)}</label>`).join('');
+  const mask = openModal({
+    title: `把 ${ids.length} 个单词加入生词本`,
+    bodyHTML: `<div class="folder-list">${listHTML}</div>`,
+    actions: [
+      { text: '取消' },
+      { text: '确定加入', primary: true, onClick: async () => {
+          const checked = document.querySelector('input[name=fid]:checked');
+          const fid = checked ? checked.value : state.folder;
+          const map = new Map(state.words.map(w => [w.id, w]));
+          const upd = ids.filter(id => map.has(id)).map(id => ({ ...map.get(id), folderId: fid }));
+          await dbPutMany('words', upd);
+          state.sel.learning.clear();
+          state.sel.done.clear();
+          await reloadAll();
+          toast(`已加入生词本（${upd.length} 个）`);
+        } }
+    ]
+  });
+}
+
+async function newFolder() {
+  const mask = openModal({
+    title: '新建生词本文件夹',
+    input: { placeholder: '例如：难词、四级核心' },
+    actions: [
+      { text: '取消' },
+      { text: '创建', primary: true, onClick: async (el) => {
+          const name = (el.value || '').trim();
+          if (!name) return toast('名字不能为空');
+          const id = 'f_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+          await dbPutMany('notebooks', [{ id, name, createdAt: Date.now() }]);
+          state.folder = id;
+          await reloadAll();
+          toast('已创建文件夹');
+        } }
+    ]
+  });
+}
+
+async function delFolder() {
+  if (state.folder === DEFAULT_FOLDER) return toast('默认文件夹不能删除');
+  const f = state.folders.find(x => x.id === state.folder);
+  openModal({
+    title: '删除文件夹',
+    bodyHTML: `确定删除「${escapeHtml(f ? f.name : '')}」？其中的单词会移出生词本。`,
+    actions: [
+      { text: '取消' },
+      { text: '删除', danger: true, onClick: async () => {
+          const affected = state.words.filter(w => w.folderId === state.folder)
+            .map(w => ({ ...w, folderId: null }));
+          if (affected.length) await dbPutMany('words', affected);
+          await dbDeleteMany('notebooks', [state.folder]);
+          state.folder = DEFAULT_FOLDER;
+          await reloadAll();
+          toast('文件夹已删除');
+        } }
+    ]
+  });
+}
+
+function showHelp() {
+  const html = `
+  <div style="font-size:13px;line-height:1.7">
+    <b>① 导入词书</b><br>
+    支持 csv / xlsx / xls，四列表头（大小写、中文都认）：day、word、phonetic、meaning。<br>
+    导入<b>只填空、不覆盖</b>：没有的词新增；已有的词只补空缺的音标/释义；内容完整的原样保留。<br><br>
+
+    <b>② 双栏学习</b><br>
+    左【正在学】、右【已完成】。勾选卡片左边的小方框可多选，再点工具条按钮批量转移；也可点卡片右上角箭头单个移动。<br>
+    右栏默认只显示单词和音标，<b>长按</b>才显示中文释义。<br><br>
+
+    <b>③ 生词本（第三个独立区域）</b><br>
+    勾选单词 → 点「☆ 加入生词本」→ 选文件夹。加入或移出生词本，<b>不影响</b>它在左右栏的学习状态。<br>
+    可新建文件夹、按天筛选生词。<br><br>
+
+    <b>④ 朗读</b><br>
+    点单词旁的喇叭，或在左栏点单词本身即可朗读。<br>
+    系统没有英文语音时自动改用在线发音（需联网）；不想联网可在工具条取消「在线发音」，改用系统语音。<br><br>
+
+    <b>⑤ 备份与恢复</b><br>
+    导出可选「全部」或「仅未掌握」；导入时可选<b>仅补充缺失</b>（已有数据不动）或<b>完全覆盖</b>。<br><br>
+
+    <b>⑥ 数据存哪里</b><br>
+    存在<b>当前浏览器</b>（IndexedDB）。换浏览器、清理网站数据、用无痕模式都会看不到记录，建议定期导出备份。<br><br>
+
+    <b>⑦ 部署到手机</b><br>
+    把这个 html 传到 GitHub Pages / Vercel / Netlify，用生成的 https 链接打开即可，手机浏览器会自动变成上下堆叠布局。
+  </div>`;
+  openModal({
+    title: '使用说明',
+    bodyHTML: html,
+    actions: [{ text: '知道了', primary: true }]
+  });
+}
+
+/* ============================ 导入词书 ============================ */
+const HEADER_MAP = {
+  day: ['day', 'date', '日期', '天', '天数'],
+  word: ['word', '单词', '词汇'],
+  phonetic: ['phonetic', 'phonetics', '音标', '发音'],
+  meaning: ['meaning', '释义', '中文', '意思', '翻译', '中文释义']
+};
+
+function normalizeHeader(h) {
+  return String(h || '').trim().toLowerCase().replace(/[\s_\-]/g, '');
+}
+
+function mapHeaders(headerRow) {
+  const idx = {};
+  headerRow.forEach((h, i) => {
+    const n = normalizeHeader(h);
+    for (const [key, aliases] of Object.entries(HEADER_MAP)) {
+      if (idx[key] === undefined && aliases.some(a => normalizeHeader(a) === n)) idx[key] = i;
+    }
+  });
+  return idx;
+}
+
+function rowsToWords(rows) {
+  if (!rows.length) throw new Error('文件是空的，没有读到任何行。');
+  const header = rows[0];
+  const idx = mapHeaders(header);
+  const missing = ['day', 'word', 'phonetic', 'meaning'].filter(k => idx[k] === undefined);
+  if (missing.length) {
+    throw new Error(
+      '表头不正确，缺少字段：' + missing.join('、') +
+      '\n\n需要四列（大小写均可）：day / word / phonetic / meaning\n' +
+      '当前读到的表头：' + header.map(h => String(h).trim()).filter(Boolean).join(' | ')
+    );
+  }
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r || r.every(c => c === undefined || c === null || String(c).trim() === '')) continue;
+    const day = String(r[idx.day] ?? '').trim();
+    const word = String(r[idx.word] ?? '').trim();
+    const phonetic = String(r[idx.phonetic] ?? '').trim();
+    const meaning = String(r[idx.meaning] ?? '').trim();
+    if (!word) continue;
+    out.push({ day: day || '未分组', word, phonetic, meaning });
+  }
+  if (!out.length) throw new Error('表格里没有有效的单词行（word 列全为空？）');
+  return out;
+}
+
+/* CSV 解析（离线可用，自己实现，支持引号/逗号/换行/BOM） */
+function parseCSV(text) {
+  text = text.replace(/^\uFEFF/, '');
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else inQuotes = false;
+      } else field += c;
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === ',') { row.push(field); field = ''; }
+      else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+      else if (c === '\r') { /* skip */ }
+      else field += c;
+    }
+  }
+  if (field !== '' || row.length) { row.push(field); rows.push(row); }
+  return rows.filter(r => r.some(c => String(c).trim() !== ''));
+}
+
+/* 按需加载 SheetJS */
+function loadSheetJS() {
+  return new Promise((resolve, reject) => {
+    if (window.XLSX) return resolve(window.XLSX);
+    const cdns = [
+      'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+      'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js'
+    ];
+    let i = 0;
+    const tryNext = () => {
+      if (i >= cdns.length) return reject(new Error(
+        '无法加载 Excel 解析库（SheetJS）。\n\n可能原因：没有联网、或网络被拦截。\n建议：把表格另存为 CSV 再导入，CSV 不需要联网。'));
+      const s = document.createElement('script');
+      s.src = cdns[i++];
+      s.onload = () => window.XLSX ? resolve(window.XLSX) : tryNext();
+      s.onerror = () => tryNext();
+      document.head.appendChild(s);
+    };
+    tryNext();
+  });
+}
+
+async function handleFile(file) {
+  const name = file.name.toLowerCase();
+  let rows;
+  if (name.endsWith('.csv')) {
+    const text = await file.text();
+    rows = parseCSV(text);
+  } else if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+    const XLSX = await loadSheetJS();
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
+    rows = rows.filter(r => r.some(c => String(c).trim() !== ''));
+  } else {
+    throw new Error('不支持的文件类型：' + file.name + '\n只支持 .csv / .xlsx / .xls');
+  }
+
+  const parsed = rowsToWords(rows);
+  const now = Date.now();
+  const map = new Map(state.words.map(w => [w.id, w]));
+  const seen = new Set();
+  const toPut = [];
+  let added = 0, skipped = 0, filled = 0;
+  parsed.forEach((w, i) => {
+    const id = `${w.day}|${w.word}`;
+    const cur = map.get(id);
+    if (cur) {
+      // 已存在：不覆盖已有内容，只补空缺字段
+      const patch = { ...cur };
+      let changed = false;
+      if (!patch.phonetic && w.phonetic) { patch.phonetic = w.phonetic; changed = true; }
+      if (!patch.meaning && w.meaning) { patch.meaning = w.meaning; changed = true; }
+      if (changed) { toPut.push(patch); filled++; }
+      else skipped++;
+      return;
+    }
+    if (seen.has(id)) { skipped++; return; }
+    seen.add(id);
+    toPut.push({
+      id, day: w.day, word: w.word, phonetic: w.phonetic, meaning: w.meaning,
+      status: 'learning', folderId: null, createdAt: now + i
+    });
+    added++;
+  });
+  if (toPut.length) await dbPutMany('words', toPut);
+  await reloadAll();
+  return { added, filled, skipped, total: parsed.length };
+}
+
+/* ============================ 备份 ============================ */
+async function exportBackup(mode) {
+  const all = await dbGetAll('words');
+  const notebooks = await dbGetAll('notebooks');
+  const words = mode === 'undone' ? all.filter(w => w.status !== 'done') : all;
+  const data = {
+    app: 'vocab-db', version: 2, exportedAt: new Date().toISOString(),
+    scope: mode === 'undone' ? 'undone' : 'all',
+    words, notebooks
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const tag = mode === 'undone' ? '未掌握' : '全部';
+  a.download = `背单词备份_${tag}_${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+  toast(`已导出 ${words.length} 个单词（${tag}）`);
+}
+
+function normalizeRestoreWord(w, i) {
+  return {
+    id: w.id || `${w.day}|${w.word}`, day: w.day ?? '', word: w.word ?? '',
+    phonetic: w.phonetic ?? '', meaning: w.meaning ?? '',
+    status: w.status === 'done' ? 'done' : 'learning',
+    folderId: w.folderId ?? null, createdAt: w.createdAt ?? i
+  };
+}
+
+async function restoreBackup(file, mode) {
+  const text = await file.text();
+  let data;
+  try { data = JSON.parse(text); } catch (e) { throw new Error('不是合法的 JSON 文件。'); }
+  if (!data || !Array.isArray(data.words)) throw new Error('备份格式不对：缺少 words 数组。');
+
+  const srcWords = data.words.map((w, i) => normalizeRestoreWord(w, i));
+  const srcFolders = Array.isArray(data.notebooks) && data.notebooks.length
+    ? data.notebooks
+    : [{ id: DEFAULT_FOLDER, name: '默认', createdAt: Date.now() }];
+
+  if (mode === 'replace') {
+    await dbClear('words');
+    await dbClear('notebooks');
+    await dbPutMany('notebooks', srcFolders);
+    if (srcWords.length) await dbPutMany('words', srcWords);
+    state.sel.learning.clear();
+    state.sel.done.clear();
+    await reloadAll();
+    return { mode: 'replace', added: srcWords.length, filled: 0, skipped: 0 };
+  }
+
+  // 合并模式：只补不存在的，已有的保留原样（仅补空缺字段）
+  const curWords = new Map((await dbGetAll('words')).map(w => [w.id, w]));
+  const toPut = [];
+  let added = 0, filled = 0, skipped = 0;
+  srcWords.forEach((w) => {
+    const cur = curWords.get(w.id);
+    if (!cur) { toPut.push(w); added++; return; }
+    const patch = { ...cur };
+    let changed = false;
+    if (!patch.phonetic && w.phonetic) { patch.phonetic = w.phonetic; changed = true; }
+    if (!patch.meaning && w.meaning) { patch.meaning = w.meaning; changed = true; }
+    if (changed) { toPut.push(patch); filled++; } else skipped++;
+  });
+  const curFolders = new Set((await dbGetAll('notebooks')).map(f => f.id));
+  const newFolders = srcFolders.filter(f => !curFolders.has(f.id));
+  if (newFolders.length) await dbPutMany('notebooks', newFolders);
+  if (toPut.length) await dbPutMany('words', toPut);
+  await reloadAll();
+  return { mode: 'merge', added, filled, skipped };
+}
+
+/* ============================ 事件绑定 ============================ */
+function bind() {
+  $('daySelect').addEventListener('change', e => {
+    state.day = e.target.value;
+    state.sel.learning.clear(); state.sel.done.clear();
+    renderColumns();
+  });
+
+  $('searchInput').addEventListener('input', e => {
+    state.keyword = e.target.value;
+    state.sel.learning.clear(); state.sel.done.clear();
+    renderColumns();
+  });
+
+  $('onlineTts').addEventListener('change', async e => {
+    state.onlineTts = e.target.checked;
+    try { await dbPutMany('meta', [{ k: 'ui', onlineTts: state.onlineTts }]); } catch (err) { }
+    toast(state.onlineTts ? '已开启在线发音' : '已关闭在线发音');
+  });
+
+  $('selAllLearning').addEventListener('click', () => {
+    const ids = visibleIds(false);
+    const set = state.sel.learning;
+    const all = ids.every(id => set.has(id));
+    set.clear();
+    if (!all) ids.forEach(id => set.add(id));
+    renderColumns();
+  });
+
+  $('selAllDone').addEventListener('click', () => {
+    const ids = visibleIds(true);
+    const set = state.sel.done;
+    const all = ids.every(id => set.has(id));
+    set.clear();
+    if (!all) ids.forEach(id => set.add(id));
+    renderColumns();
+  });
+
+  $('moveToDone').addEventListener('click', () => moveWords([...state.sel.learning], 'done'));
+  $('moveToLearning').addEventListener('click', () => moveWords([...state.sel.done], 'learning'));
+  $('addNotebook').addEventListener('click', () => openFolderPicker([...state.sel.learning]));
+  $('addNotebookDone').addEventListener('click', () => openFolderPicker([...state.sel.done]));
+
+  $('folderSelect').addEventListener('change', e => {
+    state.folder = e.target.value;
+    renderNotebook();
+  });
+  $('nbDaySelect').addEventListener('change', e => {
+    state.nbDay = e.target.value;
+    renderNotebook();
+  });
+  $('btnNewFolder').addEventListener('click', newFolder);
+  $('btnDelFolder').addEventListener('click', delFolder);
+
+  $('btnHelp').addEventListener('click', showHelp);
+
+  $('btnImport').addEventListener('click', () => $('fileImport').click());
+  $('fileImport').addEventListener('change', async e => {
+    const f = e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    try {
+      const r = await handleFile(f);
+      openModal({
+        title: '导入完成',
+        bodyHTML:
+          `本次读取 <b>${r.total}</b> 条：` +
+          `<br>· 新增 <b>${r.added}</b> 条` +
+          (r.filled ? `<br>· 补全 <b>${r.filled}</b> 条（原来缺音标/释义，已填上）` : '') +
+          (r.skipped ? `<br>· 跳过 <b>${r.skipped}</b> 条（已存在且内容完整，保持不变）` : ''),
+        actions: [{ text: '知道了', primary: true }]
+      });
+    } catch (err) {
+      openModal({
+        title: '导入失败',
+        bodyHTML: `<span style="color:#b91c1c">${escapeHtml(err.message || String(err))}</span>`,
+        actions: [{ text: '关闭', primary: true }]
+      });
+    }
+  });
+
+  $('btnExport').addEventListener('click', () => {
+    const total = state.words.length;
+    const undone = state.words.filter(w => w.status !== 'done').length;
+    openModal({
+      title: '导出备份',
+      bodyHTML: `当前共 <b>${total}</b> 个单词，其中未掌握 <b>${undone}</b> 个。<br><br>` +
+        '选择导出范围（生词本文件夹会一并导出）：',
+      actions: [
+        { text: '取消' },
+        { text: `导出全部（${total}）`, onClick: async () => {
+            try { await exportBackup('all'); }
+            catch (e) { openModal({ title: '导出失败', bodyHTML: escapeHtml(String(e.message || e)), actions: [{ text: '关闭', primary: true }] }); }
+          } },
+        { text: `仅未掌握（${undone}）`, primary: true, onClick: async () => {
+            try { await exportBackup('undone'); }
+            catch (e) { openModal({ title: '导出失败', bodyHTML: escapeHtml(String(e.message || e)), actions: [{ text: '关闭', primary: true }] }); }
+          } }
+      ]
+    });
+  });
+
+  $('btnRestore').addEventListener('click', () => $('fileRestore').click());
+  $('fileRestore').addEventListener('change', async e => {
+    const f = e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    openModal({
+      title: '导入备份',
+      bodyHTML: '请选择导入方式：<br><br>' +
+        '<b>仅补充缺失</b>（推荐）：只把当前没有的单词加进来；已有的单词、学习状态、生词本<b>保持不动</b>。' +
+        '<br><br><b>完全覆盖</b>：清空当前数据后，用备份文件整体替换。',
+      actions: [
+        { text: '取消' },
+        { text: '完全覆盖', danger: true, onClick: async () => {
+            try {
+              const r = await restoreBackup(f, 'replace');
+              toast(`已覆盖，恢复 ${r.added} 个单词`);
+            } catch (err) {
+              openModal({ title: '恢复失败', bodyHTML: `<span style="color:#b91c1c">${escapeHtml(err.message || String(err))}</span>`, actions: [{ text: '关闭', primary: true }] });
+            }
+          } },
+        { text: '仅补充缺失', primary: true, onClick: async () => {
+            try {
+              const r = await restoreBackup(f, 'merge');
+              openModal({
+                title: '补充完成',
+                bodyHTML: `新增 <b>${r.added}</b> 个单词` +
+                  (r.filled ? `；补全 <b>${r.filled}</b> 个（原来缺音标/释义）` : '') +
+                  (r.skipped ? `；跳过 <b>${r.skipped}</b> 个（已存在，保持不变）` : ''),
+                actions: [{ text: '知道了', primary: true }]
+              });
+            } catch (err) {
+              openModal({ title: '恢复失败', bodyHTML: `<span style="color:#b91c1c">${escapeHtml(err.message || String(err))}</span>`, actions: [{ text: '关闭', primary: true }] });
+            }
+          } }
+      ]
+    });
+  });
+
+  $('btnClear').addEventListener('click', () => {
+    openModal({
+      title: '清空全部数据',
+      bodyHTML: '将删除<b>所有单词、学习状态、生词本</b>，且不可恢复。\n建议先导出备份。',
+      actions: [
+        { text: '取消' },
+        { text: '确定清空', danger: true, onClick: async () => {
+            await dbClear('words'); await dbClear('notebooks');
+            state.sel.learning.clear(); state.sel.done.clear();
+            state.day = ''; state.keyword = ''; state.nbDay = '';
+            $('searchInput').value = '';
+            await reloadAll();
+            toast('已清空');
+          } }
+      ]
+    });
+  });
+}
+
+/* ============================ 小工具 ============================ */
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function escapeAttr(s) { return escapeHtml(s); }
+
+/* ============================ 启动 ============================ */
+(async function init() {
+  bind();
+  await reloadAll();
+})();
+</script>
+</body>
+</html>
