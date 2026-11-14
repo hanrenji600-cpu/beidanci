@@ -61,9 +61,18 @@
   .card .mn{font-size:13px;color:#374151;margin-top:5px;line-height:1.45;word-break:break-word}
   /* 右栏：默认隐藏释义，长按显示 */
   .col.done .card .mn{display:none}
-  .col.done .card.reveal .mn{display:block}
+  .col.done .card.hide-w .wrow{display:none}
+  .col.done .card.hide-ph .ph{display:none}
+  .col.done .card.show-mn .mn{display:block}
   .col.done .hint{display:inline-block;font-size:11px;color:#9ca3af;margin-top:4px}
   .col.done .card.reveal .hint{display:none}
+  /* 长按时把隐藏的内容全部显示出来（放在最后，优先级最高） */
+  .col.done .card.reveal .wrow{display:flex}
+  .col.done .card.reveal .ph{display:block}
+  .col.done .card.reveal .mn{display:block}
+  /* 关闭遮挡时全部常显 */
+  .col.done .card.show-w .wrow{display:flex}
+  .col.done .card.show-ph .ph{display:block}
   .card .quick{position:absolute;right:8px;top:8px;border:1px solid var(--line);background:#fff;
     border-radius:7px;font-size:11px;padding:3px 7px;cursor:pointer;color:var(--sub)}
   .card .quick:hover{background:#f3f4f6}
@@ -141,6 +150,7 @@
         <span class="name">已完成</span>
         <span class="count" id="cntDone">0</span>
         <span class="spacer"></span>
+        <button class="btn ghost" id="btnDoneShow" title="选择右栏显示哪些内容">显示：单词+音标</button>
         <button class="btn ghost" id="selAllDone">全选</button>
       </div>
       <div class="col-tools">
@@ -182,6 +192,7 @@ const state = {
   folder: DEFAULT_FOLDER,
   nbDay: '',        // 生词本按天筛选
   onlineTts: true,  // 无英文语音时是否用在线发音
+  doneShow: { hide: true, w: true, ph: true, mn: false },  // 右栏显示设置
   words: [],        // 全量内存缓存
   folders: [],
   sel: { learning: new Set(), done: new Set() }
@@ -367,7 +378,77 @@ async function reloadAll() {
     const cb = $('onlineTts');
     if (cb) cb.checked = ui.onlineTts;
   }
+  if (ui && ui.doneShow && typeof ui.doneShow === 'object') {
+    const d = ui.doneShow;
+    state.doneShow = {
+      hide: d.hide !== false,
+      w: d.w !== false,
+      ph: d.ph !== false,
+      mn: !!d.mn
+    };
+  }
+  updateDoneShowLabel();
   renderAll();
+}
+
+function saveUi() {
+  return dbPutMany('meta', [{ k: 'ui', onlineTts: state.onlineTts, doneShow: state.doneShow }]);
+}
+
+function updateDoneShowLabel() {
+  const btn = $('btnDoneShow');
+  if (!btn) return;
+  const s = state.doneShow;
+  if (!s.hide) { btn.textContent = '显示：全部'; return; }
+  const parts = [];
+  if (s.w) parts.push('单词');
+  if (s.ph) parts.push('音标');
+  if (s.mn) parts.push('释义');
+  btn.textContent = '显示：' + (parts.length ? parts.join('+') : '无');
+}
+
+function openDoneShow() {
+  const s = state.doneShow;
+  const html = `
+  <div style="font-size:13px;line-height:1.7">
+    <label class="chkbox" style="font-size:13px">
+      <input type="checkbox" id="dsHide" ${s.hide ? 'checked' : ''}> 开启遮挡（关掉则三项全部显示，不遮挡）
+    </label>
+    <div class="folder-list" style="margin-top:10px">
+      <label><input type="checkbox" id="dsW" ${s.w ? 'checked' : ''}> 单词</label>
+      <label><input type="checkbox" id="dsPh" ${s.ph ? 'checked' : ''}> 音标</label>
+      <label><input type="checkbox" id="dsMn" ${s.mn ? 'checked' : ''}> 释义</label>
+    </div>
+    <div style="font-size:12px;color:#6b7280;margin-top:10px;line-height:1.6">
+      勾上的内容正常显示，没勾的默认隐藏；<b>长按卡片</b>可临时把隐藏项全部显示出来。<br>
+      只作用于右侧「已完成」栏，左栏和生词本不受影响。
+    </div>
+  </div>`;
+  const mask = openModal({
+    title: '已完成栏显示设置',
+    bodyHTML: html,
+    actions: [
+      { text: '取消' },
+      {
+        text: '保存', primary: true, onClick: async () => {
+          const hide = document.getElementById('dsHide').checked;
+          const w = document.getElementById('dsW').checked;
+          const ph = document.getElementById('dsPh').checked;
+          const mn = document.getElementById('dsMn').checked;
+          if (hide && !w && !ph && !mn) {
+            toast('开启遮挡时至少要勾选一项');
+            openDoneShow();
+            return;
+          }
+          state.doneShow = { hide, w, ph, mn };
+          await saveUi();
+          updateDoneShowLabel();
+          renderColumns();
+          toast('已保存');
+        }
+      }
+    ]
+  });
 }
 
 /* ============================ 渲染 ============================ */
@@ -428,9 +509,24 @@ function makeCard(w, isDone) {
   }
 
   if (isDone) {
+    const s = state.doneShow;
+    if (s.hide) {
+      if (!s.w) card.classList.add('hide-w');
+      if (!s.ph) card.classList.add('hide-ph');
+      if (s.mn) card.classList.add('show-mn');
+    } else {
+      card.classList.add('show-w', 'show-ph', 'show-mn');
+    }
+
+    const hiddenLabels = [];
+    if (s.hide) {
+      if (!s.w) hiddenLabels.push('单词');
+      if (!s.ph) hiddenLabels.push('音标');
+      if (!s.mn) hiddenLabels.push('释义');
+    }
     const hint = document.createElement('span');
     hint.className = 'hint';
-    hint.textContent = '长按查看释义';
+    hint.textContent = hiddenLabels.length ? '长按查看：' + hiddenLabels.join('、') : '';
     body.appendChild(hint);
     // 长按显示释义
     let timer = null;
@@ -696,7 +792,8 @@ function showHelp() {
 
     <b>② 双栏学习</b><br>
     左【正在学】、右【已完成】。勾选卡片左边的小方框可多选，再点工具条按钮批量转移；也可点卡片右上角箭头单个移动。<br>
-    右栏默认只显示单词和音标，<b>长按</b>才显示中文释义。<br><br>
+    右栏默认只显示单词和音标，<b>长按</b>才显示中文释义。<br>
+    右栏右上角有「<b>显示</b>」按钮，可以自选显示 单词 / 音标 / 释义 中的 1 项或 2 项，没勾的默认隐藏、长按可看；最上面的总开关关掉后就是三项全部显示（不遮挡）。<br><br>
 
     <b>③ 生词本（第三个独立区域）</b><br>
     勾选单词 → 点「☆ 加入生词本」→ 选文件夹。加入或移出生词本，<b>不影响</b>它在左右栏的学习状态。<br>
@@ -957,9 +1054,11 @@ function bind() {
 
   $('onlineTts').addEventListener('change', async e => {
     state.onlineTts = e.target.checked;
-    try { await dbPutMany('meta', [{ k: 'ui', onlineTts: state.onlineTts }]); } catch (err) { }
+    try { await saveUi(); } catch (err) { }
     toast(state.onlineTts ? '已开启在线发音' : '已关闭在线发音');
   });
+
+  $('btnDoneShow').addEventListener('click', openDoneShow);
 
   $('selAllLearning').addEventListener('click', () => {
     const ids = visibleIds(false);
