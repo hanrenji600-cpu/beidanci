@@ -58,6 +58,7 @@
   .spk:hover{color:var(--primary)}
   .spk:active{transform:scale(.9)}
   .card .ph{color:var(--sub);font-size:12px;font-style:italic;margin-top:1px;word-break:break-word}
+  .card .ph.empty, .card .mn.empty{color:#c0c4cc;font-style:normal;font-size:12px}
   .card .mn{font-size:13px;color:#374151;margin-top:5px;line-height:1.45;word-break:break-word}
   /* 右栏：默认隐藏释义，长按显示 */
   .col.done .card .mn{display:none}
@@ -112,6 +113,7 @@
   .opt + .opt{margin-top:8px}
   .opt:active{background:#f3f4f6}
   .opt span{flex:1;line-height:1.4}
+  .opt.disabled{opacity:.4;pointer-events:none;background:#f9fafb}
   .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:#111827;color:#fff;
     padding:9px 14px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:60}
   .toast.show{opacity:1}
@@ -441,37 +443,49 @@ function openDoneShow() {
   const mask = openModal({
     title: '已完成栏显示设置',
     bodyHTML: html,
-    actions: [
-      { text: '取消' },
-      {
-        text: '保存', primary: true, onClick: async () => {
-          const hide = document.getElementById('dsHide').checked;
-          const w = document.getElementById('dsW').checked;
-          const ph = document.getElementById('dsPh').checked;
-          const mn = document.getElementById('dsMn').checked;
-          if (hide && !w && !ph && !mn) {
-            toast('开启遮挡时至少要勾选一项');
-            openDoneShow();
-            return;
-          }
-          state.doneShow = { hide, w, ph, mn };
-          await saveUi();
-          updateDoneShowLabel();
-          renderColumns();
-          toast('已保存');
-        }
-      }
-    ]
+    actions: [{ text: '完成', primary: true }]
   });
 
-  // 整行都能点：点复选框用浏览器原生行为，点行内其它位置由脚本切换
+  async function applyDoneShow() {
+    const hide = document.getElementById('dsHide').checked;
+    let w = document.getElementById('dsW').checked;
+    let ph = document.getElementById('dsPh').checked;
+    let mn = document.getElementById('dsMn').checked;
+    if (hide && !w && !ph && !mn) {
+      document.getElementById('dsW').checked = true;
+      w = true;
+      toast('开启遮挡时至少要勾选一项，已自动勾选「单词」');
+    }
+    syncDisabled();
+    state.doneShow = { hide, w, ph, mn };
+    try { await saveUi(); } catch (e) { }
+    updateDoneShowLabel();
+    renderColumns();
+  }
+
+  // 关闭遮挡时，三项勾选不起作用 → 置灰禁用
+  function syncDisabled() {
+    const hide = document.getElementById('dsHide').checked;
+    ['dsW', 'dsPh', 'dsMn'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.disabled = !hide;
+      const row = el.closest('.opt');
+      if (row) row.classList.toggle('disabled', !hide);
+    });
+  }
+  syncDisabled();
+
+  // 整行都能点；任何改动立即生效并保存（不用再点保存）
   mask.querySelectorAll('.opt').forEach(row => {
     const box = row.querySelector('input[type=checkbox]');
     box.addEventListener('click', (e) => e.stopPropagation());
+    box.addEventListener('change', applyDoneShow);
     row.addEventListener('click', (e) => {
-      if (e.target === box) return;
+      if (e.target === box) return;      // 点复选框本身：走原生 + change
       e.preventDefault();
       box.checked = !box.checked;
+      applyDoneShow();
     });
   });
 }
@@ -523,8 +537,20 @@ function makeCard(w, isDone) {
     '<button class="spk" type="button" title="朗读" aria-label="朗读">' + SPK_SVG + '</button></div>' +
     '<div class="ph"></div><div class="mn"></div>';
   body.querySelector('.w').textContent = w.word;
-  body.querySelector('.ph').textContent = w.phonetic || '';
-  body.querySelector('.mn').textContent = w.meaning || '';
+  const phEl = body.querySelector('.ph');
+  if (w.phonetic) {
+    phEl.textContent = w.phonetic;
+  } else {
+    phEl.textContent = '（无音标）';
+    phEl.classList.add('empty');
+  }
+  const mnEl = body.querySelector('.mn');
+  if (w.meaning) {
+    mnEl.textContent = w.meaning;
+  } else {
+    mnEl.textContent = '（无释义）';
+    mnEl.classList.add('empty');
+  }
 
   const spk = body.querySelector('.spk');
   spk.addEventListener('click', (e) => { e.stopPropagation(); speak(w.word); });
@@ -842,6 +868,7 @@ function showHelp() {
 
     <b>⑦ 部署到手机</b><br>
     把这个 html 传到 GitHub Pages / Vercel / Netlify，用生成的 https 链接打开即可，手机浏览器会自动变成上下堆叠布局。
+    <div style="margin-top:14px;color:#9ca3af;font-size:11px">版本 v2026-11-15 · 已完成栏显示设置改动立即生效</div>
   </div>`;
   openModal({
     title: '使用说明',
