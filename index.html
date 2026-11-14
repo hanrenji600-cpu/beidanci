@@ -106,6 +106,12 @@
     accent-color:var(--primary);flex:none}
   .folder-list{display:flex;flex-direction:column;gap:6px;margin-top:10px}
   .folder-list label{display:flex;gap:8px;align-items:center;border:1px solid var(--line);border-radius:9px;padding:8px 10px;cursor:pointer;font-size:13px}
+  /* 显示设置里的选项行：整行可点，手机也好按 */
+  .opt{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:9px;
+    padding:11px 12px;cursor:pointer;font-size:13px;background:#fff;user-select:none;-webkit-user-select:none}
+  .opt + .opt{margin-top:8px}
+  .opt:active{background:#f3f4f6}
+  .opt span{flex:1;line-height:1.4}
   .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:#111827;color:#fff;
     padding:9px 14px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:60}
   .toast.show{opacity:1}
@@ -414,15 +420,20 @@ function openDoneShow() {
   const s = state.doneShow;
   const html = `
   <div style="font-size:13px;line-height:1.7">
-    <label class="chkbox" style="font-size:13px">
-      <input type="checkbox" id="dsHide" ${s.hide ? 'checked' : ''}> 开启遮挡（关掉则三项全部显示，不遮挡）
-    </label>
-    <div class="folder-list" style="margin-top:10px">
-      <label><input type="checkbox" id="dsW" ${s.w ? 'checked' : ''}> 单词</label>
-      <label><input type="checkbox" id="dsPh" ${s.ph ? 'checked' : ''}> 音标</label>
-      <label><input type="checkbox" id="dsMn" ${s.mn ? 'checked' : ''}> 释义</label>
+    <div class="opt" data-target="dsHide">
+      <input type="checkbox" id="dsHide" ${s.hide ? 'checked' : ''}>
+      <span>开启遮挡（关掉则三项全部显示，不遮挡）</span>
     </div>
-    <div style="font-size:12px;color:#6b7280;margin-top:10px;line-height:1.6">
+    <div class="opt" data-target="dsW">
+      <input type="checkbox" id="dsW" ${s.w ? 'checked' : ''}><span>单词</span>
+    </div>
+    <div class="opt" data-target="dsPh">
+      <input type="checkbox" id="dsPh" ${s.ph ? 'checked' : ''}><span>音标</span>
+    </div>
+    <div class="opt" data-target="dsMn">
+      <input type="checkbox" id="dsMn" ${s.mn ? 'checked' : ''}><span>释义</span>
+    </div>
+    <div style="font-size:12px;color:#6b7280;margin-top:12px;line-height:1.6">
       勾上的内容正常显示，没勾的默认隐藏；<b>长按卡片</b>可临时把隐藏项全部显示出来。<br>
       只作用于右侧「已完成」栏，左栏和生词本不受影响。
     </div>
@@ -451,6 +462,17 @@ function openDoneShow() {
         }
       }
     ]
+  });
+
+  // 整行都能点：点复选框用浏览器原生行为，点行内其它位置由脚本切换
+  mask.querySelectorAll('.opt').forEach(row => {
+    const box = row.querySelector('input[type=checkbox]');
+    box.addEventListener('click', (e) => e.stopPropagation());
+    row.addEventListener('click', (e) => {
+      if (e.target === box) return;
+      e.preventDefault();
+      box.checked = !box.checked;
+    });
   });
 }
 
