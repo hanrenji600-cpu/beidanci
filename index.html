@@ -58,7 +58,7 @@
   .spk:hover{color:var(--primary)}
   .spk:active{transform:scale(.9)}
   .card .ph{color:var(--sub);font-size:12px;font-style:italic;margin-top:1px;word-break:break-word}
-  .card .ph.empty, .card .mn.empty{color:#c0c4cc;font-style:normal;font-size:12px}
+  .card .ph.no-data, .card .mn.no-data{color:#c0c4cc;font-style:normal;font-size:12px}
   .card .mn{font-size:13px;color:#374151;margin-top:5px;line-height:1.45;word-break:break-word}
   /* 右栏：默认隐藏释义，长按显示 */
   .col.done .card .mn{display:none}
@@ -542,14 +542,14 @@ function makeCard(w, isDone) {
     phEl.textContent = w.phonetic;
   } else {
     phEl.textContent = '（无音标）';
-    phEl.classList.add('empty');
+    phEl.classList.add('no-data');
   }
   const mnEl = body.querySelector('.mn');
   if (w.meaning) {
     mnEl.textContent = w.meaning;
   } else {
     mnEl.textContent = '（无释义）';
-    mnEl.classList.add('empty');
+    mnEl.classList.add('no-data');
   }
 
   const spk = body.querySelector('.spk');
