@@ -732,7 +732,13 @@ function openModal({ title, bodyHTML, input, actions }) {
     const b = document.createElement('button');
     b.className = 'btn' + (a.primary ? ' primary' : '') + (a.danger ? ' danger' : '');
     b.textContent = a.text;
-    b.addEventListener('click', () => { mask.remove(); a.onClick && a.onClick(inputEl); });
+    b.addEventListener('click', () => {
+      // 先执行回调（回调里通常要读取弹窗内的表单值），再移除弹窗
+      if (a.onClick) {
+        try { a.onClick(inputEl); } catch (e) { console.error(e); }
+      }
+      setTimeout(() => mask.remove(), 0);
+    });
     acts.appendChild(b);
   });
   modal.appendChild(acts);
