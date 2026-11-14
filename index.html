@@ -130,6 +130,7 @@
     <button class="btn" id="btnImport">导入词书</button>
     <button class="btn" id="btnExport">导出备份</button>
     <button class="btn" id="btnRestore">导入备份</button>
+    <button class="btn" id="btnPhonetic">补音标</button>
     <button class="btn danger" id="btnClear">清空数据</button>
   </header>
 
@@ -1363,7 +1364,10 @@ async function doImport(items, mask) {
   if (toPut.length) await dbPutMany('words', toPut);
   // 记住批次名（即使空批也保留）
   state.batchNames = state.batchNames || [];
-  [...new Set(chosen.map(i => i.batch))].forEach(b => { if (!state.batchNames.includes(b)) state.batchNames.push(b); });
+  // 只登记真正用到的批次（避免文件名批次变成空批）
+  const usedBatches = new Set();
+  chosen.forEach(it => it.words.forEach(w => usedBatches.add(w.day || it.batch)));
+  [...usedBatches].forEach(b => { if (!state.batchNames.includes(b)) state.batchNames.push(b); });
   await saveBatchNames();
   await reloadAll();
 
@@ -1383,6 +1387,176 @@ async function doImport(items, mask) {
           toast('已撤销本次导入');
         } }
     ]
+  });
+}
+
+
+/* ============================ 在线补音标 ============================ */
+const IPA_API = 'https://api.dictionaryapi.dev/api/v2/entries/en/';
+const ipaCache = new Map();
+
+function normalizeIpa(s) {
+  let t = String(s || '').trim();
+  if (!t) return '';
+  t = t.replace(/^\[|\]$/g, '/');
+  if (t[0] !== '/') t = '/' + t;
+  if (t[t.length - 1] !== '/') t = t + '/';
+  return t.replace(/\/{2,}/g, '/');
+}
+
+/* ---------- ARPAbet → IPA（Datamuse 兜底用） ---------- */
+const ARPA_V = { AA: 'ɑ', AE: 'æ', AH: 'ʌ', AO: 'ɔ', AW: 'aʊ', AY: 'aɪ', EH: 'ɛ', ER: 'ɜːr',
+  EY: 'eɪ', IH: 'ɪ', IY: 'iː', OW: 'oʊ', OY: 'ɔɪ', UH: 'ʊ', UW: 'uː' };
+const ARPA_C = { B: 'b', CH: 'tʃ', D: 'd', DH: 'ð', F: 'f', G: 'ɡ', HH: 'h', JH: 'dʒ', K: 'k',
+  L: 'l', M: 'm', N: 'n', NG: 'ŋ', P: 'p', R: 'r', S: 's', SH: 'ʃ', T: 't', TH: 'θ',
+  V: 'v', W: 'w', Y: 'j', Z: 'z', ZH: 'ʒ' };
+
+function arpaToIpa(pron) {
+  const toks = String(pron || '').trim().split(/\s+/);
+  const items = [];
+  toks.forEach(t => {
+    const m = t.match(/^([A-Z]+)([012])?$/);
+    if (!m) return;
+    const base = m[1], st = m[2] ? Number(m[2]) : null;
+    if (ARPA_V[base]) {
+      let sym = ARPA_V[base];
+      if (st === 0) {
+        if (base === 'AH') sym = 'ə';
+        else if (base === 'ER') sym = 'ər';
+        else if (base === 'IY') sym = 'i';
+        else if (base === 'UW') sym = 'u';
+      }
+      items.push({ v: true, sym, stress: st });
+    } else if (ARPA_C[base]) {
+      items.push({ v: false, sym: ARPA_C[base] });
+    }
+  });
+  if (!items.some(i => i.v)) return '';
+  let out = '', pending = [];
+  items.forEach(it => {
+    if (it.v) {
+      const mark = it.stress === 1 ? 'ˈ' : it.stress === 2 ? 'ˌ' : '';
+      out += mark + pending.join('') + it.sym;
+      pending = [];
+    } else pending.push(it.sym);
+  });
+  out += pending.join('');
+  return '/' + out + '/';
+}
+
+async function datamuseIpa(word) {
+  try {
+    const res = await fetch('https://api.datamuse.com/words?sp=' + encodeURIComponent(word) + '&md=r&max=3');
+    if (!res.ok) return '';
+    const arr = await res.json();
+    for (const item of (arr || [])) {
+      if (String(item.word).toLowerCase() !== String(word).toLowerCase()) continue;
+      const tag = (item.tags || []).find(t => String(t).startsWith('pron:'));
+      if (tag) {
+        const ipa = arpaToIpa(tag.slice(5));
+        if (ipa) return ipa;
+      }
+    }
+    return '';
+  } catch (e) { return ''; }
+}
+
+async function dictApiIpa(w) {
+  try {
+    const res = await fetch(IPA_API + encodeURIComponent(w), { headers: { Accept: 'application/json' } });
+    if (!res.ok) return '';
+    const data = await res.json();
+    const texts = [];
+    (Array.isArray(data) ? data : []).forEach(e => (e.phonetics || []).forEach(p => { if (p.text) texts.push(p.text); }));
+    const pick = texts.find(t => t.startsWith('/')) || texts[0] || '';
+    return normalizeIpa(pick);
+  } catch (e) { return ''; }
+}
+
+async function lookupWordIpa(word) {
+  const w = String(word || '').trim().toLowerCase().replace(/[^a-z'\-]/g, '');
+  if (!w) return '';
+  if (ipaCache.has(w)) return ipaCache.get(w);
+  // 先用 Datamuse（ARPAbet 一致性好），失败再退回 dictionaryapi
+  let ipa = await datamuseIpa(w).catch(() => '');
+  if (!ipa) ipa = await dictApiIpa(w);
+  ipaCache.set(w, ipa);
+  return ipa;
+}
+
+async function lookupIpa(text) {
+  const t = String(text || '').trim();
+  if (!t) return '';
+  if (!/\s/.test(t)) return lookupWordIpa(t);
+  const parts = t.split(/\s+/).filter(Boolean);
+  if (parts.length > 5) return '';
+  const out = [];
+  for (const p of parts) {
+    const ipa = await lookupWordIpa(p);
+    if (!ipa) return '';
+    // 短语里去掉重音符，读起来更干净
+    out.push(ipa.replace(/[ˈˌ]/g, '').replace(/^\//, '').replace(/\/$/, ''));
+  }
+  return '/' + out.join(' ') + '/';
+}
+
+async function runWithLimit(items, limit, fn, onDone) {
+  let i = 0, done = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (i < items.length) {
+      const item = items[i++];
+      try { await fn(item); } catch (e) { }
+      done++;
+      if (onDone) onDone(done);
+    }
+  });
+  await Promise.all(workers);
+}
+
+function autoFillPhonetic() {
+  const missing = state.words.filter(w => !w.phonetic);
+  if (!missing.length) { toast('所有单词都已有音标了'); return; }
+  const single = missing.filter(w => !/\s/.test(w.word));
+  const phrase = missing.filter(w => /\s/.test(w.word));
+  openModal({
+    title: '在线补音标',
+    bodyHTML: '共 <b>' + missing.length + '</b> 个词缺音标：' +
+      '<br>· 单词 <b>' + single.length + '</b> 个（直接查词典）' +
+      '<br>· 短语 <b>' + phrase.length + '</b> 个（逐词查再拼起来，可能查不全）' +
+      '<br><br>需要联网，大约 ' + Math.max(3, Math.ceil(missing.length / 3 * 0.5)) + ' 秒。查不到的词会跳过，不影响原有数据。',
+    actions: [
+      { text: '取消' },
+      { text: '开始补全', primary: true, onClick: () => doFillPhonetic(missing) }
+    ]
+  });
+}
+
+async function doFillPhonetic(targets) {
+  const mask = openModal({
+    title: '正在补音标…',
+    bodyHTML: '<div id="fp">0 / ' + targets.length + '</div>',
+    actions: []
+  });
+  const updates = [];
+  let ok = 0;
+  await runWithLimit(targets, 3, async (w) => {
+    const ipa = await lookupIpa(w.word);
+    if (ipa) { updates.push(Object.assign({}, w, { phonetic: ipa })); ok++; }
+    if (updates.length >= 20) { const b = updates.splice(0, updates.length); await dbPutMany('words', b); }
+  }, (done) => {
+    if (mask) {
+      const el = mask.querySelector('#fp');
+      if (el) el.textContent = done + ' / ' + targets.length + '　成功 ' + ok;
+    }
+  });
+  if (updates.length) await dbPutMany('words', updates);
+  if (mask) mask.remove();
+  await reloadAll();
+  const fail = targets.length - ok;
+  openModal({
+    title: '补音标完成',
+    bodyHTML: '成功 <b>' + ok + '</b> 个' + (fail ? '，未查到 <b>' + fail + '</b> 个（多为短语或生僻词）' : '') + '。',
+    actions: [{ text: '知道了', primary: true }]
   });
 }
 
@@ -1602,6 +1776,8 @@ function bind() {
       ]
     });
   });
+
+  $('btnPhonetic').addEventListener('click', autoFillPhonetic);
 
   $('btnClear').addEventListener('click', () => {
     openModal({
