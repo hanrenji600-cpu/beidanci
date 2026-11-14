@@ -99,7 +99,8 @@
     padding:16px;display:flex;flex-direction:column;overflow:hidden}
   .modal h3{margin:0 0 10px;font-size:16px;flex:none}
   .modal .msg{flex:1;min-height:0;overflow:auto;font-size:13px;color:#374151;
-    white-space:pre-wrap;line-height:1.65;padding-right:4px}
+    white-space:normal;line-height:1.65;padding-right:4px}
+  .modal .msg .err{color:#b91c1c}
   .modal .actions{flex:none;display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
   .modal input[type=text]{width:100%;border:1px solid var(--line);border-radius:8px;
     padding:8px 10px;font-size:14px;margin-top:8px;background:#fff;color:var(--text)}
@@ -118,6 +119,7 @@
     padding:9px 14px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:60}
   .toast.show{opacity:1}
   .hidden{display:none !important}
+  body.dragging::after{content:"松开即可导入";position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;font-size:20px;color:#2563eb;background:rgba(239,246,255,.85);border:3px dashed #2563eb;pointer-events:none}
 </style>
 </head>
 <body>
@@ -185,7 +187,7 @@
   </section>
 </div>
 
-<input type="file" id="fileImport" accept=".csv,.xlsx,.xls" class="hidden">
+<input type="file" id="fileImport" accept=".csv,.xlsx,.xls,.txt,.tsv,.json" multiple class="hidden">
 <input type="file" id="fileRestore" accept=".json" class="hidden">
 <div id="toast" class="toast"></div>
 
@@ -378,10 +380,13 @@ async function dbGet(store, key) {
 
 /* ============================ 数据加载 ============================ */
 async function reloadAll() {
-  const [words, folders, ui] = await Promise.all([
-    dbGetAll('words'), dbGetAll('notebooks'), dbGet('meta', 'ui')
+  const [words, folders, ui, batches] = await Promise.all([
+    dbGetAll('words'), dbGetAll('notebooks'), dbGet('meta', 'ui'), dbGet('meta', 'batches')
   ]);
   state.words = words;
+  state.batchNames = (batches && Array.isArray(batches.list)) ? batches.list : [];
+  const daysFromWords = [...new Set(words.map(w => String(w.day)).filter(Boolean))];
+  daysFromWords.forEach(d => { if (!state.batchNames.includes(d)) state.batchNames.push(d); });
   state.folders = folders.length ? folders : [{ id: DEFAULT_FOLDER, name: '默认', createdAt: Date.now() }];
   if (!folders.length) await dbPutMany('notebooks', state.folders);
   if (ui && typeof ui.onlineTts === 'boolean') {
@@ -505,8 +510,8 @@ function currentFilter() {
 
 function sortWords(list) {
   return list.slice().sort((a, b) => {
-    const da = String(a.day), db2 = String(b.day);
-    if (da !== db2) return da < db2 ? -1 : 1;
+    const d = natCompare(String(a.day), String(b.day));
+    if (d !== 0) return d;
     return (a.createdAt || 0) - (b.createdAt || 0);
   });
 }
@@ -632,20 +637,7 @@ function renderColumns() {
 }
 
 function renderDaySelect() {
-  const sel = $('daySelect');
-  const days = [...new Set(state.words.map(w => String(w.day)))].sort();
-  const cur = state.day;
-  sel.innerHTML = '<option value="">全部日期</option>' +
-    days.map(d => `<option value="${escapeAttr(d)}">${escapeHtml(d)}</option>`).join('');
-  sel.value = days.includes(cur) ? cur : '';
-  state.day = sel.value;
-
-  const nb = $('nbDaySelect');
-  const nbDays = [...new Set(state.words.filter(w => w.folderId).map(w => String(w.day)))].sort();
-  nb.innerHTML = '<option value="">全部日期</option>' +
-    nbDays.map(d => `<option value="${escapeAttr(d)}">${escapeHtml(d)}</option>`).join('');
-  nb.value = nbDays.includes(state.nbDay) ? state.nbDay : '';
-  state.nbDay = nb.value;
+  updateDaySelect();
 }
 
 function renderFolders() {
@@ -900,57 +892,6 @@ function mapHeaders(headerRow) {
   return idx;
 }
 
-function rowsToWords(rows) {
-  if (!rows.length) throw new Error('文件是空的，没有读到任何行。');
-  const header = rows[0];
-  const idx = mapHeaders(header);
-  const missing = ['day', 'word', 'phonetic', 'meaning'].filter(k => idx[k] === undefined);
-  if (missing.length) {
-    throw new Error(
-      '表头不正确，缺少字段：' + missing.join('、') +
-      '\n\n需要四列（大小写均可）：day / word / phonetic / meaning\n' +
-      '当前读到的表头：' + header.map(h => String(h).trim()).filter(Boolean).join(' | ')
-    );
-  }
-  const out = [];
-  for (let i = 1; i < rows.length; i++) {
-    const r = rows[i];
-    if (!r || r.every(c => c === undefined || c === null || String(c).trim() === '')) continue;
-    const day = String(r[idx.day] ?? '').trim();
-    const word = String(r[idx.word] ?? '').trim();
-    const phonetic = String(r[idx.phonetic] ?? '').trim();
-    const meaning = String(r[idx.meaning] ?? '').trim();
-    if (!word) continue;
-    out.push({ day: day || '未分组', word, phonetic, meaning });
-  }
-  if (!out.length) throw new Error('表格里没有有效的单词行（word 列全为空？）');
-  return out;
-}
-
-/* CSV 解析（离线可用，自己实现，支持引号/逗号/换行/BOM） */
-function parseCSV(text) {
-  text = text.replace(/^\uFEFF/, '');
-  const rows = [];
-  let row = [], field = '', inQuotes = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (inQuotes) {
-      if (c === '"') {
-        if (text[i + 1] === '"') { field += '"'; i++; }
-        else inQuotes = false;
-      } else field += c;
-    } else {
-      if (c === '"') inQuotes = true;
-      else if (c === ',') { row.push(field); field = ''; }
-      else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
-      else if (c === '\r') { /* skip */ }
-      else field += c;
-    }
-  }
-  if (field !== '' || row.length) { row.push(field); rows.push(row); }
-  return rows.filter(r => r.some(c => String(c).trim() !== ''));
-}
-
 /* 按需加载 SheetJS */
 function loadSheetJS() {
   return new Promise((resolve, reject) => {
@@ -973,53 +914,476 @@ function loadSheetJS() {
   });
 }
 
-async function handleFile(file) {
+/* ============================ 批次（day）与自然排序 ============================ */
+function pad2(n) { return String(n).padStart(2, '0'); }
+
+/* 自然排序：11.15-2 排在 11.15-10 前面 */
+function natCompare(a, b) {
+  const re = /(\d+)|(\D+)/g;
+  const ax = String(a).match(re) || [];
+  const bx = String(b).match(re) || [];
+  for (let i = 0; i < Math.min(ax.length, bx.length); i++) {
+    const A = ax[i], B = bx[i];
+    const na = /^\d+$/.test(A), nb = /^\d+$/.test(B);
+    if (na && nb) {
+      const d = Number(A) - Number(B);
+      if (d !== 0) return d;
+    } else {
+      const d = A.localeCompare(B, 'zh-Hans-CN');
+      if (d !== 0) return d;
+    }
+  }
+  return ax.length - bx.length;
+}
+
+/* 从文件名推断批次名（= 日期），认不出就用文件名 */
+function batchNameFromFile(filename) {
+  const stem = String(filename).replace(/\.[^.]+$/, '').trim();
+  let m = stem.match(/(20\d{2})\s*[.\-_年]\s*(\d{1,2})\s*[.\-_月]\s*(\d{1,2})/);
+  if (m) return `${m[1]}-${pad2(m[2])}-${pad2(m[3])}`;
+  m = stem.match(/(?:^|[^\d])(\d{1,2})\s*[.\-_\/月]\s*(\d{1,2})\s*日?/);
+  if (m) return `${pad2(m[1])}.${pad2(m[2])}`;
+  m = stem.match(/^(\d{2})(\d{2})$/);
+  if (m) {
+    const mo = Number(m[1]), dd = Number(m[2]);
+    if (mo >= 1 && mo <= 12 && dd >= 1 && dd <= 31) return `${pad2(mo)}.${pad2(dd)}`;
+  }
+  return stem || '未命名';
+}
+
+function allBatchNames() {
+  const set = new Set();
+  state.words.forEach(w => { if (w.day) set.add(String(w.day)); });
+  (state.batchNames || []).forEach(n => { if (n) set.add(n); });
+  return [...set].sort(natCompare);
+}
+
+function batchCount(name) {
+  return state.words.filter(w => String(w.day) === String(name)).length;
+}
+
+async function saveBatchNames() {
+  await dbPutMany('meta', [{ k: 'batches', list: state.batchNames || [] }]);
+}
+
+async function createBatch(name) {
+  const n = String(name || '').trim();
+  if (!n) { toast('批次名不能为空'); return false; }
+  state.batchNames = state.batchNames || [];
+  if (!state.batchNames.includes(n)) { state.batchNames.push(n); await saveBatchNames(); }
+  await reloadAll();
+  state.day = n;
+  updateDaySelect();
+  renderColumns();
+  return true;
+}
+
+async function renameBatch(oldName, newName) {
+  const to = String(newName || '').trim();
+  if (!to) { toast('新名字不能为空'); return false; }
+  if (to === oldName) return true;
+  const affected = state.words.filter(w => String(w.day) === String(oldName));
+  const olds = affected.map(w => w.id);
+  const news = affected.map(w => ({ ...w, id: `${to}|${w.word}`, day: to }));
+  if (olds.length) await dbDeleteMany('words', olds);
+  if (news.length) await dbPutMany('words', news);
+  state.batchNames = (state.batchNames || []).map(n => (n === oldName ? to : n));
+  if (!affected.length && !state.batchNames.includes(to)) state.batchNames.push(to);
+  await saveBatchNames();
+  if (state.day === oldName) state.day = to;
+  await reloadAll();
+  return true;
+}
+
+async function deleteBatch(name) {
+  const affected = state.words.filter(w => String(w.day) === String(name));
+  if (affected.length) await dbDeleteMany('words', affected.map(w => w.id));
+  state.batchNames = (state.batchNames || []).filter(n => n !== name);
+  await saveBatchNames();
+  if (state.day === name) state.day = '';
+  await reloadAll();
+  return affected.length;
+}
+
+function openBatchManager() {
+  const names = allBatchNames();
+  const rows = names.length
+    ? names.map(n => `
+      <div class="opt" data-batch="${escapeAttr(n)}">
+        <span style="flex:1"><b>${escapeHtml(n)}</b> <span style="color:#9ca3af">${batchCount(n)} 词</span></span>
+        <button class="btn" data-act="rename" style="margin-left:8px">改名</button>
+        <button class="btn danger" data-act="delete" style="margin-left:6px">删除</button>
+      </div>`).join('')
+    : '<div class="empty">还没有批次，先导入或新建一个</div>';
+
+  const mask = openModal({
+    title: '批次管理',
+    bodyHTML: `<div style="font-size:12px;color:#6b7280;margin-bottom:10px">
+        每个批次 = 一组单词（就是原来的“日期”）。改名后，里面的单词会跟着走。</div>
+      <div id="batchList">${rows}</div>
+      <div class="opt" style="margin-top:12px;border-style:dashed">
+        <input type="text" id="newBatchName" placeholder="新批次名字，如 11.15-2" style="flex:1;border:none;outline:none;font-size:13px">
+        <button class="btn primary" id="btnAddBatch" style="margin-left:8px">新建</button>
+      </div>`,
+    actions: [{ text: '关闭', primary: true }]
+  });
+
+  mask.querySelector('#btnAddBatch').addEventListener('click', async () => {
+    const v = mask.querySelector('#newBatchName').value.trim();
+    if (!v) return toast('请输入名字');
+    await createBatch(v);
+    mask.remove();
+    openBatchManager();
+    toast('已新建批次：' + v);
+  });
+
+  mask.querySelectorAll('[data-act]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const name = btn.closest('[data-batch]').dataset.batch;
+      if (btn.dataset.act === 'rename') {
+        mask.remove();
+        const m2 = openModal({
+          title: '批次改名',
+          bodyHTML: `把「<b>${escapeHtml(name)}</b>」改成：`,
+          input: { value: name },
+          actions: [
+            { text: '取消' },
+            { text: '确定', primary: true, onClick: async (el) => {
+                const ok = await renameBatch(name, el.value);
+                if (ok) { toast('已改名'); openBatchManager(); }
+              } }
+          ]
+        });
+      } else {
+        const cnt = batchCount(name);
+        mask.remove();
+        openModal({
+          title: '删除批次',
+          bodyHTML: `确定删除「<b>${escapeHtml(name)}</b>」？<br>这一批的 <b>${cnt}</b> 个单词会一起删除，不可恢复。`,
+          actions: [
+            { text: '取消', onClick: () => openBatchManager() },
+            { text: '删除', danger: true, primary: true, onClick: async () => {
+                await deleteBatch(name);
+                toast('已删除批次');
+                openBatchManager();
+              } }
+          ]
+        });
+      }
+    });
+  });
+}
+
+function updateDaySelect() {
+  const sel = $('daySelect');
+  if (!sel) return;
+  const names = allBatchNames();
+  const opts = ['<option value="">全部日期</option>'];
+  names.forEach(n => {
+    opts.push(`<option value="${escapeAttr(n)}">${escapeHtml(n)}　(${batchCount(n)})</option>`);
+  });
+  opts.push('<option value="__new__">＋ 新建批次…</option>');
+  opts.push('<option value="__manage__">⚙ 管理批次…</option>');
+  sel.innerHTML = opts.join('');
+  sel.value = names.includes(state.day) ? state.day : '';
+  state.day = sel.value;
+
+  const nb = $('nbDaySelect');
+  if (nb) {
+    const nbDays = [...new Set(state.words.filter(w => w.folderId).map(w => String(w.day)))].sort(natCompare);
+    nb.innerHTML = '<option value="">全部日期</option>' +
+      nbDays.map(d => `<option value="${escapeAttr(d)}">${escapeHtml(d)}</option>`).join('');
+    nb.value = nbDays.includes(state.nbDay) ? state.nbDay : '';
+    state.nbDay = nb.value;
+  }
+}
+
+/* ============================ 编码 / 分隔符 / 列推断 ============================ */
+async function readTextSmart(file) {
+  const buf = await file.arrayBuffer();
+  const b = new Uint8Array(buf);
+  if (b[0] === 0xFF && b[1] === 0xFE) return new TextDecoder('utf-16le').decode(buf);
+  if (b[0] === 0xEF && b[1] === 0xBB) return new TextDecoder('utf-8').decode(buf);
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(buf);
+  } catch (e) {
+    try { return new TextDecoder('gbk').decode(buf); }
+    catch (e2) { return new TextDecoder('utf-8').decode(buf); }
+  }
+}
+
+function escapeReg(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+function sniffDelimiter(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim()).slice(0, 30);
+  if (!lines.length) return ',';
+  const cands = [',', '\t', ';', '|'];
+  let best = null, bestScore = 0;
+  for (const d of cands) {
+    const counts = lines.map(l => (l.match(new RegExp(escapeReg(d), 'g')) || []).length);
+    const nz = counts.filter(c => c > 0);
+    if (!nz.length) continue;
+    const avg = nz.reduce((a, c) => a + c, 0) / nz.length;
+    const variance = counts.reduce((a, c) => a + (c - avg) ** 2, 0) / counts.length;
+    const score = avg * 10 - variance;
+    if (score > bestScore) { bestScore = score; best = d; }
+  }
+  if (best) return best;
+  // 多空格分隔
+  if (lines.some(l => /\S {2,}\S/.test(l))) return 'SPACE';
+  return 'SPACE';
+}
+
+function splitLines(text, delim) {
+  if (delim === 'SPACE') {
+    return text.split(/\r?\n/)
+      .map(l => l.trim())
+      .filter(Boolean)
+      .map(l => l.split(/\s{2,}|\t/).map(s => s.trim()).filter(s => s !== ''));
+  }
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; } else inQuotes = false;
+      } else field += c;
+    } else if (c === '"') inQuotes = true;
+    else if (c === delim) { row.push(field); field = ''; }
+    else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+    else if (c !== '\r') field += c;
+  }
+  if (field !== '' || row.length) { row.push(field); rows.push(row); }
+  return rows.filter(r => r.some(c => String(c).trim() !== ''));
+}
+
+const IPA_RE = /[ˈˌəʃθðŋæɔɪʊɑɜʌːˈ]/;
+function looksPhonetic(v) {
+  return /^[\/\[\(].*[\/\]\)]$/.test(v) || IPA_RE.test(v) || /^[a-zəʃθðŋæˈˌːʌɒɪʊɛɔ]+$/.test(v) && IPA_RE.test(v);
+}
+function looksDate(v) {
+  return /^(?:\d{1,2}[.\-\/月]\d{1,2}日?|\d{4}[.\-]\d{1,2}[.\-]\d{1,2}|day\s*\d+|第\s*\d+\s*天|\d+\s*单元)$/i.test(v);
+}
+function looksCJK(v) { return /[\u4e00-\u9fa5]/.test(v); }
+function looksWord(v) { return /^[A-Za-z][A-Za-z'’\-.\s]{0,40}$/.test(v) && /[A-Za-z]{2,}/.test(v); }
+
+function inferColumns(rows) {
+  const width = Math.max(...rows.slice(0, 30).map(r => r.length));
+  const score = [];
+  for (let c = 0; c < width; c++) {
+    const s = { c, word: 0, meaning: 0, phonetic: 0, day: 0, n: 0 };
+    rows.slice(0, 40).forEach(r => {
+      const v = String(r[c] ?? '').trim();
+      if (!v) return;
+      s.n++;
+      if (looksDate(v)) s.day++;
+      else if (looksPhonetic(v)) s.phonetic++;
+      else if (looksCJK(v)) s.meaning++;
+      else if (looksWord(v)) s.word++;
+    });
+    score.push(s);
+  }
+  const pick = (key) => {
+    const sorted = [...score].filter(s => s[key] > 0).sort((a, b) => b[key] - a[key]);
+    return sorted.length ? sorted[0].c : -1;
+  };
+  const map = {};
+  map.day = pick('day');
+  map.phonetic = pick('phonetic');
+  map.meaning = pick('meaning');
+  map.word = pick('word');
+  // 释义列被音标占用时回退
+  if (map.meaning === map.phonetic) map.meaning = -1;
+  if (map.word < 0) {
+    const rest = score.filter(s => ![map.day, map.phonetic, map.meaning].includes(s.c) && s.n > 0);
+    if (rest.length) map.word = rest.sort((a, b) => b.n - a.n)[0].c;
+  }
+  return map;
+}
+
+/* 把表格行转成词条：优先用表头，否则按内容推断 */
+function parseRowsToWords(rows) {
+  if (!rows || !rows.length) throw new Error('文件是空的');
+  const headerIdx = mapHeaders(rows[0]);
+  const hasHeader = Object.keys(headerIdx).length >= 2;
+  let map = headerIdx;
+  let start = 1;
+  if (!hasHeader) {
+    map = inferColumns(rows);
+    start = 0;
+  }
+  if (map.word === undefined || map.word < 0) {
+    throw new Error('认不出“单词”在哪一列，请在预览里手动指定');
+  }
+  const out = [];
+  for (let i = start; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r || !r.length) continue;
+    const get = (k) => (map[k] >= 0 && map[k] !== undefined ? String(r[map[k]] ?? '').trim() : '');
+    const word = get('word');
+    if (!word) continue;
+    out.push({ day: get('day'), word, phonetic: get('phonetic'), meaning: get('meaning') });
+  }
+  if (!out.length) throw new Error('没有识别到有效单词行');
+  return { words: out, hasHeader, map };
+}
+
+/* ============================ 导入流程 ============================ */
+async function readTable(file) {
   const name = file.name.toLowerCase();
-  let rows;
-  if (name.endsWith('.csv')) {
-    const text = await file.text();
-    rows = parseCSV(text);
-  } else if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+  if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
     const XLSX = await loadSheetJS();
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(buf, { type: 'array' });
     const ws = wb.Sheets[wb.SheetNames[0]];
-    rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
-    rows = rows.filter(r => r.some(c => String(c).trim() !== ''));
-  } else {
-    throw new Error('不支持的文件类型：' + file.name + '\n只支持 .csv / .xlsx / .xls');
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
+    return rows.filter(r => r.some(c => String(c).trim() !== ''));
   }
+  if (name.endsWith('.json')) {
+    const text = await readTextSmart(file);
+    const data = JSON.parse(text);
+    const arr = Array.isArray(data) ? data : (data.words || []);
+    return [['day', 'word', 'phonetic', 'meaning']].concat(
+      arr.map(w => [w.day ?? '', w.word ?? '', w.phonetic ?? '', w.meaning ?? ''])
+    );
+  }
+  const text = await readTextSmart(file);
+  const delim = sniffDelimiter(text);
+  return splitLines(text, delim);
+}
 
-  const parsed = rowsToWords(rows);
-  const now = Date.now();
-  const map = new Map(state.words.map(w => [w.id, w]));
+async function importFiles(fileList) {
+  const files = [...fileList];
+  if (!files.length) return;
+  const items = [];
+  for (const f of files) {
+    const item = { file: f, name: f.name, batch: batchNameFromFile(f.name), checked: true };
+    try {
+      const rows = await readTable(f);
+      const parsed = parseRowsToWords(rows);
+      item.words = parsed.words;
+      item.hasHeader = parsed.hasHeader;
+      item.error = null;
+    } catch (e) {
+      item.words = [];
+      item.error = e.message || String(e);
+      item.checked = false;
+    }
+    items.push(item);
+  }
+  showImportPreview(items);
+}
+
+function showImportPreview(items) {
+  const rowHtml = items.map((it, i) => `
+    <div class="opt" style="align-items:flex-start;flex-wrap:wrap" data-i="${i}">
+      <input type="checkbox" ${it.checked ? 'checked' : ''} ${it.error ? 'disabled' : ''} style="margin-top:3px">
+      <span style="flex:1;min-width:0">
+        <b style="word-break:break-all">${escapeHtml(it.name)}</b>
+        <span style="color:#9ca3af">${it.error ? '' : '· ' + it.words.length + ' 词' + (it.hasHeader ? '（有表头）' : '（按内容推断列）')}</span>
+        ${it.error ? `<div style="color:#b91c1c;font-size:12px;margin-top:2px">${escapeHtml(it.error)}</div>` : ''}
+        ${it.error ? '' : `<div style="margin-top:6px;display:flex;gap:6px;align-items:center">
+          <span style="font-size:12px;color:#6b7280">批次</span>
+          <input type="text" class="bi" value="${escapeAttr(it.batch)}" style="flex:1;border:1px solid #e5e7eb;border-radius:8px;padding:6px 8px;font-size:13px">
+        </div>`}
+      </span>
+    </div>`).join('');
+
+  const okCount = items.filter(i => !i.error).length;
+  const mask = openModal({
+    title: '导入预览',
+    bodyHTML: `<div style="font-size:12px;color:#6b7280;margin-bottom:10px">
+        同一天 / 同名批次的文件会合并成一批；批次名可以随便改。</div>
+      <div id="ipList">${rowHtml}</div>
+      <div id="ipSum" style="font-size:12px;color:#374151;margin-top:10px"></div>`,
+    actions: [
+      { text: '取消' },
+      { text: '开始导入', primary: true, onClick: () => doImport(items, mask) }
+    ]
+  });
+
+  function refreshSum() {
+    const chosen = [];
+    mask.querySelectorAll('[data-i]').forEach(row => {
+      const i = Number(row.dataset.i);
+      const cb = row.querySelector('input[type=checkbox]');
+      const bi = row.querySelector('.bi');
+      if (bi) items[i].batch = bi.value.trim() || items[i].batch;
+      items[i].checked = cb.checked;
+      if (cb.checked && !items[i].error) chosen.push(items[i]);
+    });
+    const batches = new Set(chosen.map(i => i.batch));
+    const total = chosen.reduce((a, i) => a + i.words.length, 0);
+    mask.querySelector('#ipSum').textContent = `将导入 ${batches.size} 批 · ${total} 词`;
+  }
+  mask.querySelectorAll('[data-i] input[type=checkbox], [data-i] .bi').forEach(el => {
+    el.addEventListener('input', refreshSum);
+    el.addEventListener('change', refreshSum);
+  });
+  refreshSum();
+}
+
+async function doImport(items, mask) {
+  if (mask) mask.remove();
+  const chosen = items.filter(i => i.checked && !i.error);
+  const existing = new Map(state.words.map(w => [w.id, w]));
   const seen = new Set();
   const toPut = [];
-  let added = 0, skipped = 0, filled = 0;
-  parsed.forEach((w, i) => {
-    const id = `${w.day}|${w.word}`;
-    const cur = map.get(id);
-    if (cur) {
-      // 已存在：不覆盖已有内容，只补空缺字段
-      const patch = { ...cur };
-      let changed = false;
-      if (!patch.phonetic && w.phonetic) { patch.phonetic = w.phonetic; changed = true; }
-      if (!patch.meaning && w.meaning) { patch.meaning = w.meaning; changed = true; }
-      if (changed) { toPut.push(patch); filled++; }
-      else skipped++;
-      return;
-    }
-    if (seen.has(id)) { skipped++; return; }
-    seen.add(id);
-    toPut.push({
-      id, day: w.day, word: w.word, phonetic: w.phonetic, meaning: w.meaning,
-      status: 'learning', folderId: null, createdAt: now + i
+  const addedIds = [];
+  const patched = [];
+  let added = 0, filled = 0, skipped = 0;
+
+  chosen.forEach(it => {
+    it.words.forEach(w => {
+      const day = w.day || it.batch;
+      const id = `${day}|${w.word}`;
+      const cur = existing.get(id);
+      if (cur) {
+        const patch = { ...cur };
+        let changed = false;
+        if (!patch.phonetic && w.phonetic) { patch.phonetic = w.phonetic; changed = true; }
+        if (!patch.meaning && w.meaning) { patch.meaning = w.meaning; changed = true; }
+        if (changed) { toPut.push(patch); patched.push({ id: patch.id, phonetic: cur.phonetic, meaning: cur.meaning }); filled++; }
+        else skipped++;
+        return;
+      }
+      if (seen.has(id)) { skipped++; return; }
+      seen.add(id);
+      toPut.push({
+        id, day, word: w.word, phonetic: w.phonetic || '', meaning: w.meaning || '',
+        status: 'learning', folderId: null, createdAt: Date.now() + addedIds.length
+      });
+      addedIds.push(id);
+      added++;
     });
-    added++;
   });
+
   if (toPut.length) await dbPutMany('words', toPut);
+  // 记住批次名（即使空批也保留）
+  state.batchNames = state.batchNames || [];
+  [...new Set(chosen.map(i => i.batch))].forEach(b => { if (!state.batchNames.includes(b)) state.batchNames.push(b); });
+  await saveBatchNames();
   await reloadAll();
-  return { added, filled, skipped, total: parsed.length };
+
+  openModal({
+    title: '导入完成',
+    bodyHTML: `新增 <b>${added}</b> 条${filled ? `，补全 <b>${filled}</b> 条` : ''}${skipped ? `，跳过 <b>${skipped}</b> 条（已存在）` : ''}`,
+    actions: [
+      { text: '知道了' },
+      { text: '撤销这次导入', danger: true, onClick: async () => {
+          if (addedIds.length) await dbDeleteMany('words', addedIds);
+          if (patched.length) {
+            const map = new Map(state.words.map(w => [w.id, w]));
+            const restore = patched.map(p => ({ ...map.get(p.id), phonetic: p.phonetic, meaning: p.meaning })).filter(w => w.id);
+            if (restore.length) await dbPutMany('words', restore);
+          }
+          await reloadAll();
+          toast('已撤销本次导入');
+        } }
+    ]
+  });
 }
 
 /* ============================ 备份 ============================ */
@@ -1155,28 +1519,29 @@ function bind() {
   $('btnHelp').addEventListener('click', showHelp);
 
   $('btnImport').addEventListener('click', () => $('fileImport').click());
+
   $('fileImport').addEventListener('change', async e => {
-    const f = e.target.files[0];
+    const files = [...e.target.files];
     e.target.value = '';
-    if (!f) return;
-    try {
-      const r = await handleFile(f);
-      openModal({
-        title: '导入完成',
-        bodyHTML:
-          `本次读取 <b>${r.total}</b> 条：` +
-          `<br>· 新增 <b>${r.added}</b> 条` +
-          (r.filled ? `<br>· 补全 <b>${r.filled}</b> 条（原来缺音标/释义，已填上）` : '') +
-          (r.skipped ? `<br>· 跳过 <b>${r.skipped}</b> 条（已存在且内容完整，保持不变）` : ''),
-        actions: [{ text: '知道了', primary: true }]
-      });
-    } catch (err) {
-      openModal({
-        title: '导入失败',
-        bodyHTML: `<span style="color:#b91c1c">${escapeHtml(err.message || String(err))}</span>`,
-        actions: [{ text: '关闭', primary: true }]
-      });
-    }
+    if (!files.length) return;
+    await importFiles(files);
+  });
+
+  // 直接把文件拖到页面上就能导入
+  ['dragenter', 'dragover'].forEach(t => document.addEventListener(t, (e) => {
+    e.preventDefault();
+    document.body.classList.add('dragging');
+  }));
+  document.addEventListener('dragleave', (e) => {
+    if (!e.relatedTarget) document.body.classList.remove('dragging');
+  });
+  document.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    document.body.classList.remove('dragging');
+    const files = [...((e.dataTransfer && e.dataTransfer.files) || [])]
+      .filter(f => /\.(csv|xlsx|xls|txt|tsv|json)$/i.test(f.name));
+    if (files.length) await importFiles(files);
+    else toast('请拖入 csv / xlsx / xls / txt / json 文件');
   });
 
   $('btnExport').addEventListener('click', () => {
@@ -1190,11 +1555,11 @@ function bind() {
         { text: '取消' },
         { text: `导出全部（${total}）`, onClick: async () => {
             try { await exportBackup('all'); }
-            catch (e) { openModal({ title: '导出失败', bodyHTML: escapeHtml(String(e.message || e)), actions: [{ text: '关闭', primary: true }] }); }
+            catch (e) { openModal({ title: '导出失败', bodyHTML: `<span class="err">${errHtml(e)}</span>`, actions: [{ text: '关闭', primary: true }] }); }
           } },
         { text: `仅未掌握（${undone}）`, primary: true, onClick: async () => {
             try { await exportBackup('undone'); }
-            catch (e) { openModal({ title: '导出失败', bodyHTML: escapeHtml(String(e.message || e)), actions: [{ text: '关闭', primary: true }] }); }
+            catch (e) { openModal({ title: '导出失败', bodyHTML: `<span class="err">${errHtml(e)}</span>`, actions: [{ text: '关闭', primary: true }] }); }
           } }
       ]
     });
@@ -1217,7 +1582,7 @@ function bind() {
               const r = await restoreBackup(f, 'replace');
               toast(`已覆盖，恢复 ${r.added} 个单词`);
             } catch (err) {
-              openModal({ title: '恢复失败', bodyHTML: `<span style="color:#b91c1c">${escapeHtml(err.message || String(err))}</span>`, actions: [{ text: '关闭', primary: true }] });
+              openModal({ title: '恢复失败', bodyHTML: `<span class="err">${errHtml(err)}</span>`, actions: [{ text: '关闭', primary: true }] });
             }
           } },
         { text: '仅补充缺失', primary: true, onClick: async () => {
@@ -1231,7 +1596,7 @@ function bind() {
                 actions: [{ text: '知道了', primary: true }]
               });
             } catch (err) {
-              openModal({ title: '恢复失败', bodyHTML: `<span style="color:#b91c1c">${escapeHtml(err.message || String(err))}</span>`, actions: [{ text: '关闭', primary: true }] });
+              openModal({ title: '恢复失败', bodyHTML: `<span class="err">${errHtml(err)}</span>`, actions: [{ text: '关闭', primary: true }] });
             }
           } }
       ]
@@ -1258,6 +1623,10 @@ function bind() {
 }
 
 /* ============================ 小工具 ============================ */
+function errHtml(e) {
+  return escapeHtml(String((e && e.message) || e)).replace(/\n/g, '<br>');
+}
+
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
