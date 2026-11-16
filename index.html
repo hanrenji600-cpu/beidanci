@@ -58,22 +58,7 @@
   .spk:hover{color:var(--primary)}
   .spk:active{transform:scale(.9)}
   .card .ph{color:var(--sub);font-size:12px;font-style:italic;margin-top:1px;word-break:break-word}
-  .card .ph.no-data, .card .mn.no-data{color:#c0c4cc;font-style:normal;font-size:12px}
   .card .mn{font-size:13px;color:#374151;margin-top:5px;line-height:1.45;word-break:break-word}
-  /* 右栏：默认隐藏释义，长按显示 */
-  .col.done .card .mn{display:none}
-  .col.done .card.hide-w .wrow{display:none}
-  .col.done .card.hide-ph .ph{display:none}
-  .col.done .card.show-mn .mn{display:block}
-  .col.done .hint{display:inline-block;font-size:11px;color:#9ca3af;margin-top:4px}
-  .col.done .card.reveal .hint{display:none}
-  /* 长按时把隐藏的内容全部显示出来（放在最后，优先级最高） */
-  .col.done .card.reveal .wrow{display:flex}
-  .col.done .card.reveal .ph{display:block}
-  .col.done .card.reveal .mn{display:block}
-  /* 关闭遮挡时全部常显 */
-  .col.done .card.show-w .wrow{display:flex}
-  .col.done .card.show-ph .ph{display:block}
   .card .quick{position:absolute;right:8px;top:8px;border:1px solid var(--line);background:#fff;
     border-radius:7px;font-size:11px;padding:3px 7px;cursor:pointer;color:var(--sub)}
   .card .quick:hover{background:#f3f4f6}
@@ -99,27 +84,33 @@
     padding:16px;display:flex;flex-direction:column;overflow:hidden}
   .modal h3{margin:0 0 10px;font-size:16px;flex:none}
   .modal .msg{flex:1;min-height:0;overflow:auto;font-size:13px;color:#374151;
-    white-space:normal;line-height:1.65;padding-right:4px}
-  .modal .msg .err{color:#b91c1c}
+    white-space:pre-wrap;line-height:1.65;padding-right:4px}
   .modal .actions{flex:none;display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
-  .modal input[type=text]{width:100%;border:1px solid var(--line);border-radius:8px;
-    padding:8px 10px;font-size:14px;margin-top:8px;background:#fff;color:var(--text)}
-  .modal input[type=checkbox]{width:16px;height:16px;min-width:16px;margin:0;padding:0;border:none;
-    accent-color:var(--primary);flex:none}
+  .modal input{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px;margin-top:8px}
   .folder-list{display:flex;flex-direction:column;gap:6px;margin-top:10px}
   .folder-list label{display:flex;gap:8px;align-items:center;border:1px solid var(--line);border-radius:9px;padding:8px 10px;cursor:pointer;font-size:13px}
-  /* 显示设置里的选项行：整行可点，手机也好按 */
-  .opt{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:9px;
-    padding:11px 12px;cursor:pointer;font-size:13px;background:#fff;user-select:none;-webkit-user-select:none}
-  .opt + .opt{margin-top:8px}
-  .opt:active{background:#f3f4f6}
-  .opt span{flex:1;line-height:1.4}
-  .opt.disabled{opacity:.4;pointer-events:none;background:#f9fafb}
   .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:#111827;color:#fff;
     padding:9px 14px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:60}
   .toast.show{opacity:1}
   .hidden{display:none !important}
-  body.dragging::after{content:"松开即可导入";position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;font-size:20px;color:#2563eb;background:rgba(239,246,255,.85);border:3px dashed #2563eb;pointer-events:none}
+  .card .body{padding-right:30px}
+  .card .edit{position:absolute;right:30px;bottom:8px;border:none;background:transparent;cursor:pointer;font-size:13px;color:#9ca3af}
+  .card .edit:hover{color:var(--primary)}
+  .col-head select{border:1px solid var(--line);border-radius:8px;padding:4px 6px;font-size:12px;background:#fff;color:var(--text)}
+  .col-head{flex-wrap:wrap}
+  .chips{display:inline-flex;gap:4px;align-items:center;font-size:12px;color:var(--sub)}
+  .chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:3px 9px;font-size:12px;cursor:pointer;color:var(--sub)}
+  .chip.on{background:var(--primary-weak);border-color:var(--primary);color:var(--primary)}
+  .hide-w .w{display:none}
+  .hide-p .ph{display:none}
+  .hide-m .mn{display:none}
+  .hide-w .reveal .w{display:inline}
+  .hide-p .reveal .ph{display:block}
+  .hide-m .reveal .mn{display:block}
+  .hint{display:none;font-size:11px;color:#9ca3af;margin-top:4px}
+  .col.done.hide-w .hint,.col.done.hide-p .hint,.col.done.hide-m .hint{display:inline-block}
+  .col.done .card.reveal .hint{display:none}
+  .nb-item .body{-webkit-user-select:none;user-select:none}
 </style>
 </head>
 <body>
@@ -127,19 +118,22 @@
   <header class="top">
     <div class="title">背单词</div>
     <button class="btn" id="btnHelp">使用说明</button>
+    <button class="btn" id="btnAdd">＋ 添加单词</button>
     <button class="btn" id="btnImport">导入词书</button>
     <button class="btn" id="btnExport">导出备份</button>
     <button class="btn" id="btnRestore">导入备份</button>
-    <button class="btn" id="btnPhonetic">补音标</button>
+    <button class="btn" id="btnPhon">联网补全</button>
     <button class="btn danger" id="btnClear">清空数据</button>
   </header>
 
   <div class="toolbar">
     <select id="daySelect" title="按日期筛选"></select>
+    <button class="btn" id="btnRenameDay" disabled title="给当前选中的日期/分组改名">重命名分组</button>
     <input type="search" id="searchInput" placeholder="搜索单词或释义…">
-    <label class="chkbox" title="系统没有英文语音时，用在线发音代替（需联网）">
+    <label class="chkbox" title="优先使用在线真人发音（需联网，失败时自动改用系统语音）">
       <input type="checkbox" id="onlineTts" checked> 在线发音
     </label>
+    <select id="accent" title="发音口音"><option value="2">美音</option><option value="1">英音</option></select>
     <span class="sel-info" id="totalInfo"></span>
   </div>
 
@@ -155,6 +149,7 @@
         <span class="sel-info" id="selInfoLearning">未选择</span>
         <button class="btn" id="addNotebook" disabled>☆ 加入生词本</button>
         <button class="btn primary" id="moveToDone" disabled>移到已完成 →</button>
+        <button class="btn danger" id="delLearning" disabled>删除</button>
       </div>
       <div class="col-body" id="bodyLearning"></div>
     </section>
@@ -164,13 +159,14 @@
         <span class="name">已完成</span>
         <span class="count" id="cntDone">0</span>
         <span class="spacer"></span>
-        <button class="btn ghost" id="btnDoneShow" title="选择右栏显示哪些内容">显示：单词+音标</button>
+        <span class="chips" data-scope="done">显示 <button type="button" class="chip" data-k="w">英语</button><button type="button" class="chip" data-k="p">音标</button><button type="button" class="chip" data-k="m">汉语</button></span>
         <button class="btn ghost" id="selAllDone">全选</button>
       </div>
       <div class="col-tools">
         <span class="sel-info" id="selInfoDone">未选择</span>
         <button class="btn" id="addNotebookDone" disabled>☆ 加入生词本</button>
         <button class="btn primary" id="moveToLearning" disabled>← 移到正在学</button>
+        <button class="btn danger" id="delDone" disabled>删除</button>
       </div>
       <div class="col-body" id="bodyDone"></div>
     </section>
@@ -183,12 +179,13 @@
       <button class="btn" id="btnNewFolder">新建文件夹</button>
       <button class="btn danger" id="btnDelFolder">删除文件夹</button>
       <select id="nbDaySelect" title="按天筛选生词"></select>
+      <span class="chips" data-scope="nb">显示 <button type="button" class="chip" data-k="w">英语</button><button type="button" class="chip" data-k="p">音标</button><button type="button" class="chip" data-k="m">汉语</button></span>
     </div>
     <div class="nb-body" id="nbBody"></div>
   </section>
 </div>
 
-<input type="file" id="fileImport" accept=".csv,.xlsx,.xls,.txt,.tsv,.json" multiple class="hidden">
+<input type="file" id="fileImport" accept=".csv,.xlsx,.xls,.txt" class="hidden">
 <input type="file" id="fileRestore" accept=".json" class="hidden">
 <div id="toast" class="toast"></div>
 
@@ -206,7 +203,8 @@ const state = {
   folder: DEFAULT_FOLDER,
   nbDay: '',        // 生词本按天筛选
   onlineTts: true,  // 无英文语音时是否用在线发音
-  doneShow: { hide: true, w: true, ph: true, mn: false },  // 右栏显示设置
+  accent: '2',      // 在线发音口音：2 美音 / 1 英音
+  view: { done: { w: true, p: true, m: false }, nb: { w: true, p: true, m: true } }, // 显示哪些内容
   words: [],        // 全量内存缓存
   folders: [],
   sel: { learning: new Set(), done: new Set() }
@@ -287,22 +285,20 @@ async function dbClear(store) {
   return new Promise((res, rej) => { t.oncomplete = () => res(); t.onerror = () => rej(t.error); });
 }
 
-/* ============================ 朗读（浏览器内置 TTS） ============================ */
+/* ============================ 朗读（在线真人发音优先，系统语音兜底） ============================ */
 const tts = {
   ok: typeof window.speechSynthesis !== 'undefined' && typeof window.SpeechSynthesisUtterance !== 'undefined',
-  voice: null,
-  hasEn: false,
-  hinted: false,
+  voice: null, hasEn: false, hinted: false,
   pick() {
     if (!this.ok) return;
-    const vs = window.speechSynthesis.getVoices() || [];
-    const en = vs.filter(v => /^en/i.test(v.lang));
-    this.hasEn = en.length > 0;
-    this.voice =
-      en.find(v => /en[-_]US/i.test(v.lang) && /google|natural|siri|zira|aria|jenny/i.test(v.name)) ||
-      en.find(v => /en[-_]US/i.test(v.lang)) ||
-      en[0] ||
-      null;
+    const want = state.accent === '1' ? /en[-_]GB/i : /en[-_]US/i;
+    const vs = (window.speechSynthesis.getVoices() || []).filter(v => /^en/i.test(v.lang));
+    this.hasEn = vs.length > 0;
+    const sc = v => (want.test(v.lang) ? 10 : 0) + (/natural|neural|online/i.test(v.name) ? 6 : 0) +
+      (/google/i.test(v.name) ? 4 : 0) +
+      (/samantha|daniel|siri|aria|jenny|guy|libby|sonia|serena|karen/i.test(v.name) ? 3 : 0) +
+      (v.localService ? 0 : 1);
+    this.voice = vs.sort((a, b) => sc(b) - sc(a))[0] || null;
   }
 };
 if (tts.ok) {
@@ -314,13 +310,21 @@ if (tts.ok) {
   }
 }
 
+let curAudio = null;
+const audioCache = new Map();
+function stopSpeak() {
+  try {
+    if (curAudio) curAudio.pause();
+    if (tts.ok) window.speechSynthesis.cancel();
+  } catch (e) { }
+}
+
 function localSpeak(text) {
   try {
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(String(text));
-    u.lang = 'en-US';
-    u.rate = 0.9;
-    u.pitch = 1;
+    u.lang = state.accent === '1' ? 'en-GB' : 'en-US';
+    u.rate = 0.85;
     if (tts.voice) u.voice = tts.voice;
     window.speechSynthesis.speak(u);
   } catch (e) {
@@ -328,50 +332,57 @@ function localSpeak(text) {
   }
 }
 
-/* 在线发音（系统缺英文语音时使用，需联网） */
-function speakOnline(text) {
+function playOnline(text) {
   return new Promise((resolve, reject) => {
-    let settled = false;
-    const ok = () => { if (!settled) { settled = true; resolve(); } };
-    const bad = () => { if (!settled) { settled = true; reject(new Error('audio fail')); } };
+    const key = state.accent + '|' + text;
+    let a = audioCache.get(key);
+    if (!a) {
+      a = new Audio('https://dict.youdao.com/dictvoice?audio=' + encodeURIComponent(text) + '&type=' + state.accent);
+      a.preload = 'auto';
+    }
+    curAudio = a;
+    let done = false;
+    const tm = setTimeout(() => { try { a.pause(); } catch (e) { } fin(false); }, 4000);
+    const fin = (ok) => {
+      if (done) return;
+      done = true;
+      clearTimeout(tm);
+      a.removeEventListener('playing', onP);
+      a.removeEventListener('error', onE);
+      ok ? resolve() : reject(new Error('audio'));
+    };
+    const onP = () => {
+      audioCache.set(key, a);
+      if (audioCache.size > 150) audioCache.delete(audioCache.keys().next().value);
+      fin(true);
+    };
+    const onE = () => fin(false);
+    a.addEventListener('playing', onP);
+    a.addEventListener('error', onE);
     try {
-      const a = new Audio('https://dict.youdao.com/dictvoice?audio=' +
-        encodeURIComponent(text) + '&type=2');
-      a.addEventListener('playing', ok);
-      a.addEventListener('error', bad);
-      setTimeout(bad, 4000);
+      a.currentTime = 0;
       const p = a.play();
-      if (p && typeof p.then === 'function') p.then(ok).catch(bad);
-    } catch (e) { bad(); }
+      if (p && p.catch) p.catch(onE);
+    } catch (e) { fin(false); }
   });
 }
 
-let speaking = false;
+let speakSeq = 0;
 async function speak(text) {
-  if (!text || speaking) return;
-  if (!tts.ok) { toast('当前浏览器不支持朗读'); return; }
-  tts.pick();
-  speaking = true;
-  try {
-    if (tts.hasEn) { localSpeak(text); return; }
-    if (state.onlineTts) {
-      try {
-        await speakOnline(text);
-        if (!tts.onlineHinted) {
-          tts.onlineHinted = true;
-          toast('系统未装英文语音，已改用在线发音');
-        }
-        return;
-      } catch (e) { /* 网络不可用时退回本地 */ }
-    }
-    if (!tts.hinted) {
-      tts.hinted = true;
-      toast('系统未装英文语音，发音可能不准（可加装英语语音包）');
-    }
-    localSpeak(text);
-  } finally {
-    setTimeout(() => { speaking = false; }, 600);
+  text = String(text || '').trim();
+  if (!text) return;
+  stopSpeak();
+  const seq = ++speakSeq;
+  if (state.onlineTts && navigator.onLine !== false) {
+    try { await playOnline(text); return; } catch (e) { if (seq !== speakSeq) return; }
   }
+  if (!tts.ok) { toast('当前浏览器不支持朗读，请联网并勾选「在线发音」'); return; }
+  tts.pick();
+  if (!tts.hasEn && !tts.hinted) {
+    tts.hinted = true;
+    toast('系统没有英文语音，发音可能不准；建议联网并勾选「在线发音」');
+  }
+  localSpeak(text);
 }
 
 async function dbGet(store, key) {
@@ -381,13 +392,10 @@ async function dbGet(store, key) {
 
 /* ============================ 数据加载 ============================ */
 async function reloadAll() {
-  const [words, folders, ui, batches] = await Promise.all([
-    dbGetAll('words'), dbGetAll('notebooks'), dbGet('meta', 'ui'), dbGet('meta', 'batches')
+  const [words, folders, ui] = await Promise.all([
+    dbGetAll('words'), dbGetAll('notebooks'), dbGet('meta', 'ui')
   ]);
   state.words = words;
-  state.batchNames = (batches && Array.isArray(batches.list)) ? batches.list : [];
-  const daysFromWords = [...new Set(words.map(w => String(w.day)).filter(Boolean))];
-  daysFromWords.forEach(d => { if (!state.batchNames.includes(d)) state.batchNames.push(d); });
   state.folders = folders.length ? folders : [{ id: DEFAULT_FOLDER, name: '默认', createdAt: Date.now() }];
   if (!folders.length) await dbPutMany('notebooks', state.folders);
   if (ui && typeof ui.onlineTts === 'boolean') {
@@ -395,105 +403,11 @@ async function reloadAll() {
     const cb = $('onlineTts');
     if (cb) cb.checked = ui.onlineTts;
   }
-  if (ui && ui.doneShow && typeof ui.doneShow === 'object') {
-    const d = ui.doneShow;
-    state.doneShow = {
-      hide: d.hide !== false,
-      w: d.w !== false,
-      ph: d.ph !== false,
-      mn: !!d.mn
-    };
+  if (ui && (ui.accent === '1' || ui.accent === '2')) { state.accent = ui.accent; $('accent').value = ui.accent; }
+  if (ui && ui.view) {
+    ['done', 'nb'].forEach(k => { state.view[k] = { ...state.view[k], ...(ui.view[k] || {}) }; });
   }
-  updateDoneShowLabel();
   renderAll();
-}
-
-function saveUi() {
-  return dbPutMany('meta', [{ k: 'ui', onlineTts: state.onlineTts, doneShow: state.doneShow }]);
-}
-
-function updateDoneShowLabel() {
-  const btn = $('btnDoneShow');
-  if (!btn) return;
-  const s = state.doneShow;
-  if (!s.hide) { btn.textContent = '显示：全部'; return; }
-  const parts = [];
-  if (s.w) parts.push('单词');
-  if (s.ph) parts.push('音标');
-  if (s.mn) parts.push('释义');
-  btn.textContent = '显示：' + (parts.length ? parts.join('+') : '无');
-}
-
-function openDoneShow() {
-  const s = state.doneShow;
-  const html = `
-  <div style="font-size:13px;line-height:1.7">
-    <div class="opt" data-target="dsHide">
-      <input type="checkbox" id="dsHide" ${s.hide ? 'checked' : ''}>
-      <span>开启遮挡（关掉则三项全部显示，不遮挡）</span>
-    </div>
-    <div class="opt" data-target="dsW">
-      <input type="checkbox" id="dsW" ${s.w ? 'checked' : ''}><span>单词</span>
-    </div>
-    <div class="opt" data-target="dsPh">
-      <input type="checkbox" id="dsPh" ${s.ph ? 'checked' : ''}><span>音标</span>
-    </div>
-    <div class="opt" data-target="dsMn">
-      <input type="checkbox" id="dsMn" ${s.mn ? 'checked' : ''}><span>释义</span>
-    </div>
-    <div style="font-size:12px;color:#6b7280;margin-top:12px;line-height:1.6">
-      勾上的内容正常显示，没勾的默认隐藏；<b>长按卡片</b>可临时把隐藏项全部显示出来。<br>
-      只作用于右侧「已完成」栏，左栏和生词本不受影响。
-    </div>
-  </div>`;
-  const mask = openModal({
-    title: '已完成栏显示设置',
-    bodyHTML: html,
-    actions: [{ text: '完成', primary: true }]
-  });
-
-  async function applyDoneShow() {
-    const hide = document.getElementById('dsHide').checked;
-    let w = document.getElementById('dsW').checked;
-    let ph = document.getElementById('dsPh').checked;
-    let mn = document.getElementById('dsMn').checked;
-    if (hide && !w && !ph && !mn) {
-      document.getElementById('dsW').checked = true;
-      w = true;
-      toast('开启遮挡时至少要勾选一项，已自动勾选「单词」');
-    }
-    syncDisabled();
-    state.doneShow = { hide, w, ph, mn };
-    try { await saveUi(); } catch (e) { }
-    updateDoneShowLabel();
-    renderColumns();
-  }
-
-  // 关闭遮挡时，三项勾选不起作用 → 置灰禁用
-  function syncDisabled() {
-    const hide = document.getElementById('dsHide').checked;
-    ['dsW', 'dsPh', 'dsMn'].forEach(id => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.disabled = !hide;
-      const row = el.closest('.opt');
-      if (row) row.classList.toggle('disabled', !hide);
-    });
-  }
-  syncDisabled();
-
-  // 整行都能点；任何改动立即生效并保存（不用再点保存）
-  mask.querySelectorAll('.opt').forEach(row => {
-    const box = row.querySelector('input[type=checkbox]');
-    box.addEventListener('click', (e) => e.stopPropagation());
-    box.addEventListener('change', applyDoneShow);
-    row.addEventListener('click', (e) => {
-      if (e.target === box) return;      // 点复选框本身：走原生 + change
-      e.preventDefault();
-      box.checked = !box.checked;
-      applyDoneShow();
-    });
-  });
 }
 
 /* ============================ 渲染 ============================ */
@@ -511,8 +425,8 @@ function currentFilter() {
 
 function sortWords(list) {
   return list.slice().sort((a, b) => {
-    const d = natCompare(String(a.day), String(b.day));
-    if (d !== 0) return d;
+    const da = String(a.day), db2 = String(b.day);
+    if (da !== db2) return dayCmp(da, db2);
     return (a.createdAt || 0) - (b.createdAt || 0);
   });
 }
@@ -543,20 +457,8 @@ function makeCard(w, isDone) {
     '<button class="spk" type="button" title="朗读" aria-label="朗读">' + SPK_SVG + '</button></div>' +
     '<div class="ph"></div><div class="mn"></div>';
   body.querySelector('.w').textContent = w.word;
-  const phEl = body.querySelector('.ph');
-  if (w.phonetic) {
-    phEl.textContent = w.phonetic;
-  } else {
-    phEl.textContent = '（无音标）';
-    phEl.classList.add('no-data');
-  }
-  const mnEl = body.querySelector('.mn');
-  if (w.meaning) {
-    mnEl.textContent = w.meaning;
-  } else {
-    mnEl.textContent = '（无释义）';
-    mnEl.classList.add('no-data');
-  }
+  body.querySelector('.ph').textContent = w.phonetic || '';
+  body.querySelector('.mn').textContent = w.meaning || '';
 
   const spk = body.querySelector('.spk');
   spk.addEventListener('click', (e) => { e.stopPropagation(); speak(w.word); });
@@ -566,24 +468,9 @@ function makeCard(w, isDone) {
   }
 
   if (isDone) {
-    const s = state.doneShow;
-    if (s.hide) {
-      if (!s.w) card.classList.add('hide-w');
-      if (!s.ph) card.classList.add('hide-ph');
-      if (s.mn) card.classList.add('show-mn');
-    } else {
-      card.classList.add('show-w', 'show-ph', 'show-mn');
-    }
-
-    const hiddenLabels = [];
-    if (s.hide) {
-      if (!s.w) hiddenLabels.push('单词');
-      if (!s.ph) hiddenLabels.push('音标');
-      if (!s.mn) hiddenLabels.push('释义');
-    }
     const hint = document.createElement('span');
     hint.className = 'hint';
-    hint.textContent = hiddenLabels.length ? '长按查看：' + hiddenLabels.join('、') : '';
+    hint.textContent = '长按查看全部';
     body.appendChild(hint);
     // 长按显示释义
     let timer = null;
@@ -611,9 +498,20 @@ function makeCard(w, isDone) {
   star.type = 'button';
   star.title = '加入生词本';
   star.textContent = w.folderId ? '★' : '☆';
-  star.addEventListener('click', (e) => { e.stopPropagation(); openFolderPicker([w.id]); });
+  star.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    if (w.folderId) {
+      await dbPutMany('words', [{ ...w, folderId: null }]);
+      await reloadAll();
+      toast('已移出生词本');
+    } else openFolderPicker([w.id]);
+  });
 
-  card.append(chk, body, quick, star);
+  const edit = document.createElement('button');
+  edit.className = 'edit'; edit.type = 'button'; edit.title = '编辑'; edit.textContent = '✎';
+  edit.addEventListener('click', (e) => { e.stopPropagation(); openWordEditor(w); });
+  edit.addEventListener('pointerdown', (e) => e.stopPropagation());
+  card.append(chk, body, quick, edit, star);
   return card;
 }
 
@@ -623,6 +521,7 @@ function renderColumns() {
   const done = list.filter(w => w.status === 'done');
 
   const bl = $('bodyLearning'), bd = $('bodyDone');
+  const stL = bl.scrollTop, stD = bd.scrollTop;
   bl.innerHTML = ''; bd.innerHTML = '';
 
   if (!learning.length) bl.innerHTML = '<div class="empty">暂无单词</div>';
@@ -631,6 +530,7 @@ function renderColumns() {
   if (!done.length) bd.innerHTML = '<div class="empty">暂无单词</div>';
   else done.forEach(w => bd.appendChild(makeCard(w, true)));
 
+  bl.scrollTop = stL; bd.scrollTop = stD;
   $('cntLearning').textContent = learning.length;
   $('cntDone').textContent = done.length;
   $('totalInfo').textContent = `共 ${state.words.length} 词 · 当前筛选 ${list.length}`;
@@ -638,7 +538,20 @@ function renderColumns() {
 }
 
 function renderDaySelect() {
-  updateDaySelect();
+  const sel = $('daySelect');
+  const days = [...new Set(state.words.map(w => String(w.day)))].sort(dayCmp);
+  const cur = state.day;
+  sel.innerHTML = '<option value="">全部日期</option>' +
+    days.map(d => `<option value="${escapeAttr(d)}">${escapeHtml(d)}</option>`).join('');
+  sel.value = days.includes(cur) ? cur : '';
+  state.day = sel.value;
+
+  const nb = $('nbDaySelect');
+  const nbDays = [...new Set(state.words.filter(w => w.folderId).map(w => String(w.day)))].sort(dayCmp);
+  nb.innerHTML = '<option value="">全部日期</option>' +
+    nbDays.map(d => `<option value="${escapeAttr(d)}">${escapeHtml(d)}</option>`).join('');
+  nb.value = nbDays.includes(state.nbDay) ? state.nbDay : '';
+  state.nbDay = nb.value;
 }
 
 function renderFolders() {
@@ -679,6 +592,12 @@ function renderNotebook() {
     row.querySelector('.ph').textContent = w.phonetic || '';
     row.querySelector('.mn').textContent = w.meaning || '';
     row.querySelector('.spk').addEventListener('click', (e) => { e.stopPropagation(); speak(w.word); });
+    row.querySelector('.spk').addEventListener('pointerdown', (e) => e.stopPropagation());
+    let lp = null;
+    const nbBody = row.querySelector('.body');
+    nbBody.addEventListener('pointerdown', () => { lp = setTimeout(() => row.classList.add('reveal'), 320); });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => nbBody.addEventListener(ev, () => { clearTimeout(lp); row.classList.remove('reveal'); }));
+    nbBody.addEventListener('contextmenu', e => e.preventDefault());
     const rm = document.createElement('button');
     rm.className = 'btn danger';
     rm.textContent = '移出';
@@ -694,6 +613,7 @@ function renderNotebook() {
 }
 
 function renderAll() {
+  applyDoneMode();
   renderDaySelect();
   renderFolders();
   renderColumns();
@@ -715,6 +635,9 @@ function updateSelUI() {
   $('moveToLearning').disabled = D.size === 0;
   $('addNotebook').disabled = L.size === 0;
   $('addNotebookDone').disabled = D.size === 0;
+  $('btnRenameDay').disabled = !state.day;
+  $('delLearning').disabled = L.size === 0;
+  $('delDone').disabled = D.size === 0;
 }
 
 async function moveWords(ids, target) {
@@ -751,19 +674,18 @@ function openModal({ title, bodyHTML, input, actions }) {
     const b = document.createElement('button');
     b.className = 'btn' + (a.primary ? ' primary' : '') + (a.danger ? ' danger' : '');
     b.textContent = a.text;
-    b.addEventListener('click', () => {
-      // 先执行回调（回调里通常要读取弹窗内的表单值），再移除弹窗
-      if (a.onClick) {
-        try { a.onClick(inputEl); } catch (e) { console.error(e); }
-      }
-      setTimeout(() => mask.remove(), 0);
-    });
+    b.addEventListener('click', () => { if (a.validate && !a.validate(inputEl, mask)) return; mask.remove(); a.onClick && a.onClick(inputEl, mask); });
     acts.appendChild(b);
   });
   modal.appendChild(acts);
   mask.appendChild(modal);
   mask.addEventListener('click', e => { if (e.target === mask) mask.remove(); });
   document.body.appendChild(mask);
+  const onEsc = (e) => {
+    if (!mask.isConnected) { document.removeEventListener('keydown', onEsc); return; }
+    if (e.key === 'Escape') { mask.remove(); document.removeEventListener('keydown', onEsc); }
+  };
+  document.addEventListener('keydown', onEsc);
   if (inputEl) setTimeout(() => inputEl.focus(), 30);
   return mask;
 }
@@ -779,7 +701,7 @@ function openFolderPicker(ids) {
     actions: [
       { text: '取消' },
       { text: '确定加入', primary: true, onClick: async () => {
-          const checked = document.querySelector('input[name=fid]:checked');
+          const checked = mask.querySelector('input[name=fid]:checked');
           const fid = checked ? checked.value : state.folder;
           const map = new Map(state.words.map(w => [w.id, w]));
           const upd = ids.filter(id => map.has(id)).map(id => ({ ...map.get(id), folderId: fid }));
@@ -799,7 +721,9 @@ async function newFolder() {
     input: { placeholder: '例如：难词、四级核心' },
     actions: [
       { text: '取消' },
-      { text: '创建', primary: true, onClick: async (el) => {
+      { text: '创建', primary: true,
+        validate: (el) => { if (!(el.value || '').trim()) { toast('名字不能为空'); return false; } return true; },
+        onClick: async (el) => {
           const name = (el.value || '').trim();
           if (!name) return toast('名字不能为空');
           const id = 'f_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -837,13 +761,12 @@ function showHelp() {
   const html = `
   <div style="font-size:13px;line-height:1.7">
     <b>① 导入词书</b><br>
-    支持 csv / xlsx / xls，四列表头（大小写、中文都认）：day、word、phonetic、meaning。<br>
+    支持 csv / xlsx / xls / txt，<b>自动识别</b>：可以只有一列单词，也可以是「单词、音标、释义、日期」任意顺序，有没有表头都行（中英文表头都认）。一格里写「apple /ˈæpl/ n. 苹果」这类混写也能拆开。缺的音标和释义联网后自动补全。<br>
     导入<b>只填空、不覆盖</b>：没有的词新增；已有的词只补空缺的音标/释义；内容完整的原样保留。<br><br>
 
     <b>② 双栏学习</b><br>
     左【正在学】、右【已完成】。勾选卡片左边的小方框可多选，再点工具条按钮批量转移；也可点卡片右上角箭头单个移动。<br>
-    右栏默认只显示单词和音标，<b>长按</b>才显示中文释义。<br>
-    右栏右上角有「<b>显示</b>」按钮，可以自选显示 单词 / 音标 / 释义 中的 1 项或 2 项，没勾的默认隐藏、长按可看；最上面的总开关关掉后就是三项全部显示（不遮挡）。<br><br>
+    右栏默认只显示单词和音标，<b>长按</b>才显示中文释义。<br><br>
 
     <b>③ 生词本（第三个独立区域）</b><br>
     勾选单词 → 点「☆ 加入生词本」→ 选文件夹。加入或移出生词本，<b>不影响</b>它在左右栏的学习状态。<br>
@@ -857,11 +780,13 @@ function showHelp() {
     导出可选「全部」或「仅未掌握」；导入时可选<b>仅补充缺失</b>（已有数据不动）或<b>完全覆盖</b>。<br><br>
 
     <b>⑥ 数据存哪里</b><br>
-    存在<b>当前浏览器</b>（IndexedDB）。换浏览器、清理网站数据、用无痕模式都会看不到记录，建议定期导出备份。<br><br>
+    存在<b>当前浏览器</b>（IndexedDB）。换浏览器、清理网站数据、用无痕模式都会看不到记录，建议定期导出备份；iPhone 请用「添加到主屏幕」打开，否则系统可能在长期不用后清掉数据。<br><br>
 
-    <b>⑦ 部署到手机</b><br>
+    <b>⑦ 编辑、添加、补音标</b><br>
+    点卡片右下角 ✎ 可编辑或删除单个单词；选中某个日期后点「重命名分组」可给整组改名（改成已有的名字就是合并）；顶部「＋ 添加单词」手动新增；勾选后可批量删除。「联网补全」会查缺失的音标和中文释义（只填空；联网时也会自动进行）。已完成栏和生词本顶部的「英语 / 音标 / 汉语」可自由开关，长按卡片可临时看全部；无论隐藏什么，喇叭都能朗读。发音默认走在线真人发音（可选美音 / 英音），联网失败才用系统语音。<br><br>
+
+    <b>⑧ 部署到手机</b><br>
     把这个 html 传到 GitHub Pages / Vercel / Netlify，用生成的 https 链接打开即可，手机浏览器会自动变成上下堆叠布局。
-    <div style="margin-top:14px;color:#9ca3af;font-size:11px">版本 v2026-11-15 · 已完成栏显示设置改动立即生效</div>
   </div>`;
   openModal({
     title: '使用说明',
@@ -893,6 +818,57 @@ function mapHeaders(headerRow) {
   return idx;
 }
 
+function rowsToWords(rows) {
+  if (!rows.length) throw new Error('文件是空的，没有读到任何行。');
+  const header = rows[0];
+  const idx = mapHeaders(header);
+  const missing = ['day', 'word', 'phonetic', 'meaning'].filter(k => idx[k] === undefined);
+  if (missing.length) {
+    throw new Error(
+      '表头不正确，缺少字段：' + missing.join('、') +
+      '\n\n需要四列（大小写均可）：day / word / phonetic / meaning\n' +
+      '当前读到的表头：' + header.map(h => String(h).trim()).filter(Boolean).join(' | ')
+    );
+  }
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r || r.every(c => c === undefined || c === null || String(c).trim() === '')) continue;
+    const day = String(r[idx.day] ?? '').trim();
+    const word = String(r[idx.word] ?? '').trim();
+    const phonetic = String(r[idx.phonetic] ?? '').trim();
+    const meaning = String(r[idx.meaning] ?? '').trim();
+    if (!word) continue;
+    out.push({ day: day || '未分组', word, phonetic, meaning });
+  }
+  if (!out.length) throw new Error('表格里没有有效的单词行（word 列全为空？）');
+  return out;
+}
+
+/* CSV 解析（离线可用，自己实现，支持引号/逗号/换行/BOM） */
+function parseCSV(text) {
+  text = text.replace(/^\uFEFF/, '');
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else inQuotes = false;
+      } else field += c;
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === ',') { row.push(field); field = ''; }
+      else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+      else if (c === '\r') { /* skip */ }
+      else field += c;
+    }
+  }
+  if (field !== '' || row.length) { row.push(field); rows.push(row); }
+  return rows.filter(r => r.some(c => String(c).trim() !== ''));
+}
+
 /* 按需加载 SheetJS */
 function loadSheetJS() {
   return new Promise((resolve, reject) => {
@@ -915,649 +891,55 @@ function loadSheetJS() {
   });
 }
 
-/* ============================ 批次（day）与自然排序 ============================ */
-function pad2(n) { return String(n).padStart(2, '0'); }
-
-/* 自然排序：11.15-2 排在 11.15-10 前面 */
-function natCompare(a, b) {
-  const re = /(\d+)|(\D+)/g;
-  const ax = String(a).match(re) || [];
-  const bx = String(b).match(re) || [];
-  for (let i = 0; i < Math.min(ax.length, bx.length); i++) {
-    const A = ax[i], B = bx[i];
-    const na = /^\d+$/.test(A), nb = /^\d+$/.test(B);
-    if (na && nb) {
-      const d = Number(A) - Number(B);
-      if (d !== 0) return d;
-    } else {
-      const d = A.localeCompare(B, 'zh-Hans-CN');
-      if (d !== 0) return d;
-    }
-  }
-  return ax.length - bx.length;
-}
-
-/* 从文件名推断批次名（= 日期），认不出就用文件名 */
-function batchNameFromFile(filename) {
-  const stem = String(filename).replace(/\.[^.]+$/, '').trim();
-  let m = stem.match(/(20\d{2})\s*[.\-_年]\s*(\d{1,2})\s*[.\-_月]\s*(\d{1,2})/);
-  if (m) return `${m[1]}-${pad2(m[2])}-${pad2(m[3])}`;
-  m = stem.match(/(?:^|[^\d])(\d{1,2})\s*[.\-_\/月]\s*(\d{1,2})\s*日?/);
-  if (m) return `${pad2(m[1])}.${pad2(m[2])}`;
-  m = stem.match(/^(\d{2})(\d{2})$/);
-  if (m) {
-    const mo = Number(m[1]), dd = Number(m[2]);
-    if (mo >= 1 && mo <= 12 && dd >= 1 && dd <= 31) return `${pad2(mo)}.${pad2(dd)}`;
-  }
-  return stem || '未命名';
-}
-
-function allBatchNames() {
-  const set = new Set();
-  state.words.forEach(w => { if (w.day) set.add(String(w.day)); });
-  (state.batchNames || []).forEach(n => { if (n) set.add(n); });
-  return [...set].sort(natCompare);
-}
-
-function batchCount(name) {
-  return state.words.filter(w => String(w.day) === String(name)).length;
-}
-
-async function saveBatchNames() {
-  await dbPutMany('meta', [{ k: 'batches', list: state.batchNames || [] }]);
-}
-
-async function createBatch(name) {
-  const n = String(name || '').trim();
-  if (!n) { toast('批次名不能为空'); return false; }
-  state.batchNames = state.batchNames || [];
-  if (!state.batchNames.includes(n)) { state.batchNames.push(n); await saveBatchNames(); }
-  await reloadAll();
-  state.day = n;
-  updateDaySelect();
-  renderColumns();
-  return true;
-}
-
-async function renameBatch(oldName, newName) {
-  const to = String(newName || '').trim();
-  if (!to) { toast('新名字不能为空'); return false; }
-  if (to === oldName) return true;
-  const affected = state.words.filter(w => String(w.day) === String(oldName));
-  const olds = affected.map(w => w.id);
-  const news = affected.map(w => ({ ...w, id: `${to}|${w.word}`, day: to }));
-  if (olds.length) await dbDeleteMany('words', olds);
-  if (news.length) await dbPutMany('words', news);
-  state.batchNames = (state.batchNames || []).map(n => (n === oldName ? to : n));
-  if (!affected.length && !state.batchNames.includes(to)) state.batchNames.push(to);
-  await saveBatchNames();
-  if (state.day === oldName) state.day = to;
-  await reloadAll();
-  return true;
-}
-
-async function deleteBatch(name) {
-  const affected = state.words.filter(w => String(w.day) === String(name));
-  if (affected.length) await dbDeleteMany('words', affected.map(w => w.id));
-  state.batchNames = (state.batchNames || []).filter(n => n !== name);
-  await saveBatchNames();
-  if (state.day === name) state.day = '';
-  await reloadAll();
-  return affected.length;
-}
-
-function openBatchManager() {
-  const names = allBatchNames();
-  const rows = names.length
-    ? names.map(n => `
-      <div class="opt" data-batch="${escapeAttr(n)}">
-        <span style="flex:1"><b>${escapeHtml(n)}</b> <span style="color:#9ca3af">${batchCount(n)} 词</span></span>
-        <button class="btn" data-act="rename" style="margin-left:8px">改名</button>
-        <button class="btn danger" data-act="delete" style="margin-left:6px">删除</button>
-      </div>`).join('')
-    : '<div class="empty">还没有批次，先导入或新建一个</div>';
-
-  const mask = openModal({
-    title: '批次管理',
-    bodyHTML: `<div style="font-size:12px;color:#6b7280;margin-bottom:10px">
-        每个批次 = 一组单词（就是原来的“日期”）。改名后，里面的单词会跟着走。</div>
-      <div id="batchList">${rows}</div>
-      <div class="opt" style="margin-top:12px;border-style:dashed">
-        <input type="text" id="newBatchName" placeholder="新批次名字，如 11.15-2" style="flex:1;border:none;outline:none;font-size:13px">
-        <button class="btn primary" id="btnAddBatch" style="margin-left:8px">新建</button>
-      </div>`,
-    actions: [{ text: '关闭', primary: true }]
-  });
-
-  mask.querySelector('#btnAddBatch').addEventListener('click', async () => {
-    const v = mask.querySelector('#newBatchName').value.trim();
-    if (!v) return toast('请输入名字');
-    await createBatch(v);
-    mask.remove();
-    openBatchManager();
-    toast('已新建批次：' + v);
-  });
-
-  mask.querySelectorAll('[data-act]').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      const name = btn.closest('[data-batch]').dataset.batch;
-      if (btn.dataset.act === 'rename') {
-        mask.remove();
-        const m2 = openModal({
-          title: '批次改名',
-          bodyHTML: `把「<b>${escapeHtml(name)}</b>」改成：`,
-          input: { value: name },
-          actions: [
-            { text: '取消' },
-            { text: '确定', primary: true, onClick: async (el) => {
-                const ok = await renameBatch(name, el.value);
-                if (ok) { toast('已改名'); openBatchManager(); }
-              } }
-          ]
-        });
-      } else {
-        const cnt = batchCount(name);
-        mask.remove();
-        openModal({
-          title: '删除批次',
-          bodyHTML: `确定删除「<b>${escapeHtml(name)}</b>」？<br>这一批的 <b>${cnt}</b> 个单词会一起删除，不可恢复。`,
-          actions: [
-            { text: '取消', onClick: () => openBatchManager() },
-            { text: '删除', danger: true, primary: true, onClick: async () => {
-                await deleteBatch(name);
-                toast('已删除批次');
-                openBatchManager();
-              } }
-          ]
-        });
-      }
-    });
-  });
-}
-
-function updateDaySelect() {
-  const sel = $('daySelect');
-  if (!sel) return;
-  const names = allBatchNames();
-  const opts = ['<option value="">全部日期</option>'];
-  names.forEach(n => {
-    opts.push(`<option value="${escapeAttr(n)}">${escapeHtml(n)}　(${batchCount(n)})</option>`);
-  });
-  opts.push('<option value="__new__">＋ 新建批次…</option>');
-  opts.push('<option value="__manage__">⚙ 管理批次…</option>');
-  sel.innerHTML = opts.join('');
-  sel.value = names.includes(state.day) ? state.day : '';
-  state.day = sel.value;
-
-  const nb = $('nbDaySelect');
-  if (nb) {
-    const nbDays = [...new Set(state.words.filter(w => w.folderId).map(w => String(w.day)))].sort(natCompare);
-    nb.innerHTML = '<option value="">全部日期</option>' +
-      nbDays.map(d => `<option value="${escapeAttr(d)}">${escapeHtml(d)}</option>`).join('');
-    nb.value = nbDays.includes(state.nbDay) ? state.nbDay : '';
-    state.nbDay = nb.value;
-  }
-}
-
-/* ============================ 编码 / 分隔符 / 列推断 ============================ */
-async function readTextSmart(file) {
-  const buf = await file.arrayBuffer();
-  const b = new Uint8Array(buf);
-  if (b[0] === 0xFF && b[1] === 0xFE) return new TextDecoder('utf-16le').decode(buf);
-  if (b[0] === 0xEF && b[1] === 0xBB) return new TextDecoder('utf-8').decode(buf);
-  try {
-    return new TextDecoder('utf-8', { fatal: true }).decode(buf);
-  } catch (e) {
-    try { return new TextDecoder('gbk').decode(buf); }
-    catch (e2) { return new TextDecoder('utf-8').decode(buf); }
-  }
-}
-
-function escapeReg(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
-
-function sniffDelimiter(text) {
-  const lines = text.split(/\r?\n/).filter(l => l.trim()).slice(0, 30);
-  if (!lines.length) return ',';
-  const cands = [',', '\t', ';', '|'];
-  let best = null, bestScore = 0;
-  for (const d of cands) {
-    const counts = lines.map(l => (l.match(new RegExp(escapeReg(d), 'g')) || []).length);
-    const nz = counts.filter(c => c > 0);
-    if (!nz.length) continue;
-    const avg = nz.reduce((a, c) => a + c, 0) / nz.length;
-    const variance = counts.reduce((a, c) => a + (c - avg) ** 2, 0) / counts.length;
-    const score = avg * 10 - variance;
-    if (score > bestScore) { bestScore = score; best = d; }
-  }
-  if (best) return best;
-  // 多空格分隔
-  if (lines.some(l => /\S {2,}\S/.test(l))) return 'SPACE';
-  return 'SPACE';
-}
-
-function splitLines(text, delim) {
-  if (delim === 'SPACE') {
-    return text.split(/\r?\n/)
-      .map(l => l.trim())
-      .filter(Boolean)
-      .map(l => l.split(/\s{2,}|\t/).map(s => s.trim()).filter(s => s !== ''));
-  }
-  const rows = [];
-  let row = [], field = '', inQuotes = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (inQuotes) {
-      if (c === '"') {
-        if (text[i + 1] === '"') { field += '"'; i++; } else inQuotes = false;
-      } else field += c;
-    } else if (c === '"') inQuotes = true;
-    else if (c === delim) { row.push(field); field = ''; }
-    else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
-    else if (c !== '\r') field += c;
-  }
-  if (field !== '' || row.length) { row.push(field); rows.push(row); }
-  return rows.filter(r => r.some(c => String(c).trim() !== ''));
-}
-
-const IPA_RE = /[ˈˌəʃθðŋæɔɪʊɑɜʌːˈ]/;
-function looksPhonetic(v) {
-  return /^[\/\[\(].*[\/\]\)]$/.test(v) || IPA_RE.test(v) || /^[a-zəʃθðŋæˈˌːʌɒɪʊɛɔ]+$/.test(v) && IPA_RE.test(v);
-}
-function looksDate(v) {
-  return /^(?:\d{1,2}[.\-\/月]\d{1,2}日?|\d{4}[.\-]\d{1,2}[.\-]\d{1,2}|day\s*\d+|第\s*\d+\s*天|\d+\s*单元)$/i.test(v);
-}
-function looksCJK(v) { return /[\u4e00-\u9fa5]/.test(v); }
-function looksWord(v) { return /^[A-Za-z][A-Za-z'’\-.\s]{0,40}$/.test(v) && /[A-Za-z]{2,}/.test(v); }
-
-function inferColumns(rows) {
-  const width = Math.max(...rows.slice(0, 30).map(r => r.length));
-  const score = [];
-  for (let c = 0; c < width; c++) {
-    const s = { c, word: 0, meaning: 0, phonetic: 0, day: 0, n: 0 };
-    rows.slice(0, 40).forEach(r => {
-      const v = String(r[c] ?? '').trim();
-      if (!v) return;
-      s.n++;
-      if (looksDate(v)) s.day++;
-      else if (looksPhonetic(v)) s.phonetic++;
-      else if (looksCJK(v)) s.meaning++;
-      else if (looksWord(v)) s.word++;
-    });
-    score.push(s);
-  }
-  const pick = (key) => {
-    const sorted = [...score].filter(s => s[key] > 0).sort((a, b) => b[key] - a[key]);
-    return sorted.length ? sorted[0].c : -1;
-  };
-  const map = {};
-  map.day = pick('day');
-  map.phonetic = pick('phonetic');
-  map.meaning = pick('meaning');
-  map.word = pick('word');
-  // 释义列被音标占用时回退
-  if (map.meaning === map.phonetic) map.meaning = -1;
-  if (map.word < 0) {
-    const rest = score.filter(s => ![map.day, map.phonetic, map.meaning].includes(s.c) && s.n > 0);
-    if (rest.length) map.word = rest.sort((a, b) => b.n - a.n)[0].c;
-  }
-  return map;
-}
-
-/* 把表格行转成词条：优先用表头，否则按内容推断 */
-function parseRowsToWords(rows) {
-  if (!rows || !rows.length) throw new Error('文件是空的');
-  const headerIdx = mapHeaders(rows[0]);
-  const hasHeader = Object.keys(headerIdx).length >= 2;
-  let map = headerIdx;
-  let start = 1;
-  if (!hasHeader) {
-    map = inferColumns(rows);
-    start = 0;
-  }
-  if (map.word === undefined || map.word < 0) {
-    throw new Error('认不出“单词”在哪一列，请在预览里手动指定');
-  }
-  const out = [];
-  for (let i = start; i < rows.length; i++) {
-    const r = rows[i];
-    if (!r || !r.length) continue;
-    const get = (k) => (map[k] >= 0 && map[k] !== undefined ? String(r[map[k]] ?? '').trim() : '');
-    const word = get('word');
-    if (!word) continue;
-    out.push({ day: get('day'), word, phonetic: get('phonetic'), meaning: get('meaning') });
-  }
-  if (!out.length) throw new Error('没有识别到有效单词行');
-  return { words: out, hasHeader, map };
-}
-
-/* ============================ 导入流程 ============================ */
-async function readTable(file) {
+async function handleFile(file) {
   const name = file.name.toLowerCase();
-  if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+  let rows;
+  if (name.endsWith('.csv')) {
+    const text = await file.text();
+    rows = parseCSV(text);
+  } else if (name.endsWith('.txt')) {
+    rows = (await file.text()).replace(/^\uFEFF/, '').split(/\r?\n/).filter(l => l.trim()).map(l => l.includes('\t') ? l.split('\t') : [l]);
+  } else if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
     const XLSX = await loadSheetJS();
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(buf, { type: 'array' });
     const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
-    return rows.filter(r => r.some(c => String(c).trim() !== ''));
+    rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
+    rows = rows.filter(r => r.some(c => String(c).trim() !== ''));
+  } else {
+    throw new Error('不支持的文件类型：' + file.name + '\n只支持 .csv / .xlsx / .xls / .txt');
   }
-  if (name.endsWith('.json')) {
-    const text = await readTextSmart(file);
-    const data = JSON.parse(text);
-    const arr = Array.isArray(data) ? data : (data.words || []);
-    return [['day', 'word', 'phonetic', 'meaning']].concat(
-      arr.map(w => [w.day ?? '', w.word ?? '', w.phonetic ?? '', w.meaning ?? ''])
-    );
-  }
-  const text = await readTextSmart(file);
-  const delim = sniffDelimiter(text);
-  return splitLines(text, delim);
-}
 
-async function importFiles(fileList) {
-  const files = [...fileList];
-  if (!files.length) return;
-  const items = [];
-  for (const f of files) {
-    const item = { file: f, name: f.name, batch: batchNameFromFile(f.name), checked: true };
-    try {
-      const rows = await readTable(f);
-      const parsed = parseRowsToWords(rows);
-      item.words = parsed.words;
-      item.hasHeader = parsed.hasHeader;
-      item.error = null;
-    } catch (e) {
-      item.words = [];
-      item.error = e.message || String(e);
-      item.checked = false;
-    }
-    items.push(item);
-  }
-  showImportPreview(items);
-}
-
-function showImportPreview(items) {
-  const rowHtml = items.map((it, i) => `
-    <div class="opt" style="align-items:flex-start;flex-wrap:wrap" data-i="${i}">
-      <input type="checkbox" ${it.checked ? 'checked' : ''} ${it.error ? 'disabled' : ''} style="margin-top:3px">
-      <span style="flex:1;min-width:0">
-        <b style="word-break:break-all">${escapeHtml(it.name)}</b>
-        <span style="color:#9ca3af">${it.error ? '' : '· ' + it.words.length + ' 词' + (it.hasHeader ? '（有表头）' : '（按内容推断列）')}</span>
-        ${it.error ? `<div style="color:#b91c1c;font-size:12px;margin-top:2px">${escapeHtml(it.error)}</div>` : ''}
-        ${it.error ? '' : `<div style="margin-top:6px;display:flex;gap:6px;align-items:center">
-          <span style="font-size:12px;color:#6b7280">批次</span>
-          <input type="text" class="bi" value="${escapeAttr(it.batch)}" style="flex:1;border:1px solid #e5e7eb;border-radius:8px;padding:6px 8px;font-size:13px">
-        </div>`}
-      </span>
-    </div>`).join('');
-
-  const okCount = items.filter(i => !i.error).length;
-  const mask = openModal({
-    title: '导入预览',
-    bodyHTML: `<div style="font-size:12px;color:#6b7280;margin-bottom:10px">
-        同一天 / 同名批次的文件会合并成一批；批次名可以随便改。</div>
-      <div id="ipList">${rowHtml}</div>
-      <div id="ipSum" style="font-size:12px;color:#374151;margin-top:10px"></div>`,
-    actions: [
-      { text: '取消' },
-      { text: '开始导入', primary: true, onClick: () => doImport(items, mask) }
-    ]
-  });
-
-  function refreshSum() {
-    const chosen = [];
-    mask.querySelectorAll('[data-i]').forEach(row => {
-      const i = Number(row.dataset.i);
-      const cb = row.querySelector('input[type=checkbox]');
-      const bi = row.querySelector('.bi');
-      if (bi) items[i].batch = bi.value.trim() || items[i].batch;
-      items[i].checked = cb.checked;
-      if (cb.checked && !items[i].error) chosen.push(items[i]);
-    });
-    const batches = new Set(chosen.map(i => i.batch));
-    const total = chosen.reduce((a, i) => a + i.words.length, 0);
-    mask.querySelector('#ipSum').textContent = `将导入 ${batches.size} 批 · ${total} 词`;
-  }
-  mask.querySelectorAll('[data-i] input[type=checkbox], [data-i] .bi').forEach(el => {
-    el.addEventListener('input', refreshSum);
-    el.addEventListener('change', refreshSum);
-  });
-  refreshSum();
-}
-
-async function doImport(items, mask) {
-  if (mask) mask.remove();
-  const chosen = items.filter(i => i.checked && !i.error);
-  const existing = new Map(state.words.map(w => [w.id, w]));
+  const parsed = smartRows(rows);
+  const now = Date.now();
+  const map = new Map(state.words.map(w => [w.id, w]));
   const seen = new Set();
   const toPut = [];
-  const addedIds = [];
-  const patched = [];
-  let added = 0, filled = 0, skipped = 0;
-
-  chosen.forEach(it => {
-    it.words.forEach(w => {
-      const day = w.day || it.batch;
-      const id = `${day}|${w.word}`;
-      const cur = existing.get(id);
-      if (cur) {
-        const patch = { ...cur };
-        let changed = false;
-        if (!patch.phonetic && w.phonetic) { patch.phonetic = w.phonetic; changed = true; }
-        if (!patch.meaning && w.meaning) { patch.meaning = w.meaning; changed = true; }
-        if (changed) { toPut.push(patch); patched.push({ id: patch.id, phonetic: cur.phonetic, meaning: cur.meaning }); filled++; }
-        else skipped++;
-        return;
-      }
-      if (seen.has(id)) { skipped++; return; }
-      seen.add(id);
-      toPut.push({
-        id, day, word: w.word, phonetic: w.phonetic || '', meaning: w.meaning || '',
-        status: 'learning', folderId: null, createdAt: Date.now() + addedIds.length
-      });
-      addedIds.push(id);
-      added++;
+  let added = 0, skipped = 0, filled = 0;
+  parsed.forEach((w, i) => {
+    const id = `${w.day}|${w.word}`;
+    const cur = map.get(id);
+    if (cur) {
+      // 已存在：不覆盖已有内容，只补空缺字段
+      const patch = { ...cur };
+      let changed = false;
+      if (!patch.phonetic && w.phonetic) { patch.phonetic = w.phonetic; changed = true; }
+      if (!patch.meaning && w.meaning) { patch.meaning = w.meaning; changed = true; }
+      if (changed) { toPut.push(patch); filled++; }
+      else skipped++;
+      return;
+    }
+    if (seen.has(id)) { skipped++; return; }
+    seen.add(id);
+    toPut.push({
+      id, day: w.day, word: w.word, phonetic: w.phonetic, meaning: w.meaning,
+      status: 'learning', folderId: null, createdAt: now + i
     });
+    added++;
   });
-
   if (toPut.length) await dbPutMany('words', toPut);
-  // 记住批次名（即使空批也保留）
-  state.batchNames = state.batchNames || [];
-  // 只登记真正用到的批次（避免文件名批次变成空批）
-  const usedBatches = new Set();
-  chosen.forEach(it => it.words.forEach(w => usedBatches.add(w.day || it.batch)));
-  [...usedBatches].forEach(b => { if (!state.batchNames.includes(b)) state.batchNames.push(b); });
-  await saveBatchNames();
   await reloadAll();
-
-  openModal({
-    title: '导入完成',
-    bodyHTML: `新增 <b>${added}</b> 条${filled ? `，补全 <b>${filled}</b> 条` : ''}${skipped ? `，跳过 <b>${skipped}</b> 条（已存在）` : ''}`,
-    actions: [
-      { text: '知道了' },
-      { text: '撤销这次导入', danger: true, onClick: async () => {
-          if (addedIds.length) await dbDeleteMany('words', addedIds);
-          if (patched.length) {
-            const map = new Map(state.words.map(w => [w.id, w]));
-            const restore = patched.map(p => ({ ...map.get(p.id), phonetic: p.phonetic, meaning: p.meaning })).filter(w => w.id);
-            if (restore.length) await dbPutMany('words', restore);
-          }
-          await reloadAll();
-          toast('已撤销本次导入');
-        } }
-    ]
-  });
-}
-
-
-/* ============================ 在线补音标 ============================ */
-const IPA_API = 'https://api.dictionaryapi.dev/api/v2/entries/en/';
-const ipaCache = new Map();
-
-function normalizeIpa(s) {
-  let t = String(s || '').trim();
-  if (!t) return '';
-  t = t.replace(/^\[|\]$/g, '/');
-  if (t[0] !== '/') t = '/' + t;
-  if (t[t.length - 1] !== '/') t = t + '/';
-  return t.replace(/\/{2,}/g, '/');
-}
-
-/* ---------- ARPAbet → IPA（Datamuse 兜底用） ---------- */
-const ARPA_V = { AA: 'ɑ', AE: 'æ', AH: 'ʌ', AO: 'ɔ', AW: 'aʊ', AY: 'aɪ', EH: 'ɛ', ER: 'ɜːr',
-  EY: 'eɪ', IH: 'ɪ', IY: 'iː', OW: 'oʊ', OY: 'ɔɪ', UH: 'ʊ', UW: 'uː' };
-const ARPA_C = { B: 'b', CH: 'tʃ', D: 'd', DH: 'ð', F: 'f', G: 'ɡ', HH: 'h', JH: 'dʒ', K: 'k',
-  L: 'l', M: 'm', N: 'n', NG: 'ŋ', P: 'p', R: 'r', S: 's', SH: 'ʃ', T: 't', TH: 'θ',
-  V: 'v', W: 'w', Y: 'j', Z: 'z', ZH: 'ʒ' };
-
-function arpaToIpa(pron) {
-  const toks = String(pron || '').trim().split(/\s+/);
-  const items = [];
-  toks.forEach(t => {
-    const m = t.match(/^([A-Z]+)([012])?$/);
-    if (!m) return;
-    const base = m[1], st = m[2] ? Number(m[2]) : null;
-    if (ARPA_V[base]) {
-      let sym = ARPA_V[base];
-      if (st === 0) {
-        if (base === 'AH') sym = 'ə';
-        else if (base === 'ER') sym = 'ər';
-        else if (base === 'IY') sym = 'i';
-        else if (base === 'UW') sym = 'u';
-      }
-      items.push({ v: true, sym, stress: st });
-    } else if (ARPA_C[base]) {
-      items.push({ v: false, sym: ARPA_C[base] });
-    }
-  });
-  if (!items.some(i => i.v)) return '';
-  let out = '', pending = [];
-  items.forEach(it => {
-    if (it.v) {
-      const mark = it.stress === 1 ? 'ˈ' : it.stress === 2 ? 'ˌ' : '';
-      out += mark + pending.join('') + it.sym;
-      pending = [];
-    } else pending.push(it.sym);
-  });
-  out += pending.join('');
-  return '/' + out + '/';
-}
-
-async function datamuseIpa(word) {
-  try {
-    const res = await fetch('https://api.datamuse.com/words?sp=' + encodeURIComponent(word) + '&md=r&max=3');
-    if (!res.ok) return '';
-    const arr = await res.json();
-    for (const item of (arr || [])) {
-      if (String(item.word).toLowerCase() !== String(word).toLowerCase()) continue;
-      const tag = (item.tags || []).find(t => String(t).startsWith('pron:'));
-      if (tag) {
-        const ipa = arpaToIpa(tag.slice(5));
-        if (ipa) return ipa;
-      }
-    }
-    return '';
-  } catch (e) { return ''; }
-}
-
-async function dictApiIpa(w) {
-  try {
-    const res = await fetch(IPA_API + encodeURIComponent(w), { headers: { Accept: 'application/json' } });
-    if (!res.ok) return '';
-    const data = await res.json();
-    const texts = [];
-    (Array.isArray(data) ? data : []).forEach(e => (e.phonetics || []).forEach(p => { if (p.text) texts.push(p.text); }));
-    const pick = texts.find(t => t.startsWith('/')) || texts[0] || '';
-    return normalizeIpa(pick);
-  } catch (e) { return ''; }
-}
-
-async function lookupWordIpa(word) {
-  const w = String(word || '').trim().toLowerCase().replace(/[^a-z'\-]/g, '');
-  if (!w) return '';
-  if (ipaCache.has(w)) return ipaCache.get(w);
-  // 先用 Datamuse（ARPAbet 一致性好），失败再退回 dictionaryapi
-  let ipa = await datamuseIpa(w).catch(() => '');
-  if (!ipa) ipa = await dictApiIpa(w);
-  ipaCache.set(w, ipa);
-  return ipa;
-}
-
-async function lookupIpa(text) {
-  const t = String(text || '').trim();
-  if (!t) return '';
-  if (!/\s/.test(t)) return lookupWordIpa(t);
-  const parts = t.split(/\s+/).filter(Boolean);
-  if (parts.length > 5) return '';
-  const out = [];
-  for (const p of parts) {
-    const ipa = await lookupWordIpa(p);
-    if (!ipa) return '';
-    // 短语里去掉重音符，读起来更干净
-    out.push(ipa.replace(/[ˈˌ]/g, '').replace(/^\//, '').replace(/\/$/, ''));
-  }
-  return '/' + out.join(' ') + '/';
-}
-
-async function runWithLimit(items, limit, fn, onDone) {
-  let i = 0, done = 0;
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (i < items.length) {
-      const item = items[i++];
-      try { await fn(item); } catch (e) { }
-      done++;
-      if (onDone) onDone(done);
-    }
-  });
-  await Promise.all(workers);
-}
-
-function autoFillPhonetic() {
-  const missing = state.words.filter(w => !w.phonetic);
-  if (!missing.length) { toast('所有单词都已有音标了'); return; }
-  const single = missing.filter(w => !/\s/.test(w.word));
-  const phrase = missing.filter(w => /\s/.test(w.word));
-  openModal({
-    title: '在线补音标',
-    bodyHTML: '共 <b>' + missing.length + '</b> 个词缺音标：' +
-      '<br>· 单词 <b>' + single.length + '</b> 个（直接查词典）' +
-      '<br>· 短语 <b>' + phrase.length + '</b> 个（逐词查再拼起来，可能查不全）' +
-      '<br><br>需要联网，大约 ' + Math.max(3, Math.ceil(missing.length / 3 * 0.5)) + ' 秒。查不到的词会跳过，不影响原有数据。',
-    actions: [
-      { text: '取消' },
-      { text: '开始补全', primary: true, onClick: () => doFillPhonetic(missing) }
-    ]
-  });
-}
-
-async function doFillPhonetic(targets) {
-  const mask = openModal({
-    title: '正在补音标…',
-    bodyHTML: '<div id="fp">0 / ' + targets.length + '</div>',
-    actions: []
-  });
-  const updates = [];
-  let ok = 0;
-  await runWithLimit(targets, 3, async (w) => {
-    const ipa = await lookupIpa(w.word);
-    if (ipa) { updates.push(Object.assign({}, w, { phonetic: ipa })); ok++; }
-    if (updates.length >= 20) { const b = updates.splice(0, updates.length); await dbPutMany('words', b); }
-  }, (done) => {
-    if (mask) {
-      const el = mask.querySelector('#fp');
-      if (el) el.textContent = done + ' / ' + targets.length + '　成功 ' + ok;
-    }
-  });
-  if (updates.length) await dbPutMany('words', updates);
-  if (mask) mask.remove();
-  await reloadAll();
-  const fail = targets.length - ok;
-  openModal({
-    title: '补音标完成',
-    bodyHTML: '成功 <b>' + ok + '</b> 个' + (fail ? '，未查到 <b>' + fail + '</b> 个（多为短语或生僻词）' : '') + '。',
-    actions: [{ text: '知道了', primary: true }]
-  });
+  return { added, filled, skipped, total: parsed.length };
 }
 
 /* ============================ 备份 ============================ */
@@ -1650,11 +1032,9 @@ function bind() {
 
   $('onlineTts').addEventListener('change', async e => {
     state.onlineTts = e.target.checked;
-    try { await saveUi(); } catch (err) { }
+    await saveUI();
     toast(state.onlineTts ? '已开启在线发音' : '已关闭在线发音');
   });
-
-  $('btnDoneShow').addEventListener('click', openDoneShow);
 
   $('selAllLearning').addEventListener('click', () => {
     const ids = visibleIds(false);
@@ -1693,29 +1073,29 @@ function bind() {
   $('btnHelp').addEventListener('click', showHelp);
 
   $('btnImport').addEventListener('click', () => $('fileImport').click());
-
   $('fileImport').addEventListener('change', async e => {
-    const files = [...e.target.files];
+    const f = e.target.files[0];
     e.target.value = '';
-    if (!files.length) return;
-    await importFiles(files);
-  });
-
-  // 直接把文件拖到页面上就能导入
-  ['dragenter', 'dragover'].forEach(t => document.addEventListener(t, (e) => {
-    e.preventDefault();
-    document.body.classList.add('dragging');
-  }));
-  document.addEventListener('dragleave', (e) => {
-    if (!e.relatedTarget) document.body.classList.remove('dragging');
-  });
-  document.addEventListener('drop', async (e) => {
-    e.preventDefault();
-    document.body.classList.remove('dragging');
-    const files = [...((e.dataTransfer && e.dataTransfer.files) || [])]
-      .filter(f => /\.(csv|xlsx|xls|txt|tsv|json)$/i.test(f.name));
-    if (files.length) await importFiles(files);
-    else toast('请拖入 csv / xlsx / xls / txt / json 文件');
+    if (!f) return;
+    try {
+      const r = await handleFile(f);
+      setTimeout(() => fillMissing(true), 400);
+      openModal({
+        title: '导入完成',
+        bodyHTML:
+          `本次读取 <b>${r.total}</b> 条：` +
+          `<br>· 新增 <b>${r.added}</b> 条` +
+          (r.filled ? `<br>· 补全 <b>${r.filled}</b> 条（原来缺音标/释义，已填上）` : '') +
+          (r.skipped ? `<br>· 跳过 <b>${r.skipped}</b> 条（已存在且内容完整，保持不变）` : ''),
+        actions: [{ text: '知道了', primary: true }]
+      });
+    } catch (err) {
+      openModal({
+        title: '导入失败',
+        bodyHTML: `<span style="color:#b91c1c">${escapeHtml(err.message || String(err))}</span>`,
+        actions: [{ text: '关闭', primary: true }]
+      });
+    }
   });
 
   $('btnExport').addEventListener('click', () => {
@@ -1727,13 +1107,14 @@ function bind() {
         '选择导出范围（生词本文件夹会一并导出）：',
       actions: [
         { text: '取消' },
+        { text: '导出表格', onClick: () => exportSheet() },
         { text: `导出全部（${total}）`, onClick: async () => {
             try { await exportBackup('all'); }
-            catch (e) { openModal({ title: '导出失败', bodyHTML: `<span class="err">${errHtml(e)}</span>`, actions: [{ text: '关闭', primary: true }] }); }
+            catch (e) { openModal({ title: '导出失败', bodyHTML: escapeHtml(String(e.message || e)), actions: [{ text: '关闭', primary: true }] }); }
           } },
         { text: `仅未掌握（${undone}）`, primary: true, onClick: async () => {
             try { await exportBackup('undone'); }
-            catch (e) { openModal({ title: '导出失败', bodyHTML: `<span class="err">${errHtml(e)}</span>`, actions: [{ text: '关闭', primary: true }] }); }
+            catch (e) { openModal({ title: '导出失败', bodyHTML: escapeHtml(String(e.message || e)), actions: [{ text: '关闭', primary: true }] }); }
           } }
       ]
     });
@@ -1744,11 +1125,16 @@ function bind() {
     const f = e.target.files[0];
     e.target.value = '';
     if (!f) return;
+    let scopeWarn = '';
+    try {
+      const j = JSON.parse(await f.text());
+      if (j && j.scope === 'undone') scopeWarn = '<br><br><span style="color:#b91c1c">⚠ 这份备份只含「未掌握」的单词，选「完全覆盖」会丢掉当前所有已完成的单词。</span>';
+    } catch (err) { }
     openModal({
       title: '导入备份',
       bodyHTML: '请选择导入方式：<br><br>' +
         '<b>仅补充缺失</b>（推荐）：只把当前没有的单词加进来；已有的单词、学习状态、生词本<b>保持不动</b>。' +
-        '<br><br><b>完全覆盖</b>：清空当前数据后，用备份文件整体替换。',
+        '<br><br><b>完全覆盖</b>：清空当前数据后，用备份文件整体替换。' + scopeWarn,
       actions: [
         { text: '取消' },
         { text: '完全覆盖', danger: true, onClick: async () => {
@@ -1756,7 +1142,7 @@ function bind() {
               const r = await restoreBackup(f, 'replace');
               toast(`已覆盖，恢复 ${r.added} 个单词`);
             } catch (err) {
-              openModal({ title: '恢复失败', bodyHTML: `<span class="err">${errHtml(err)}</span>`, actions: [{ text: '关闭', primary: true }] });
+              openModal({ title: '恢复失败', bodyHTML: `<span style="color:#b91c1c">${escapeHtml(err.message || String(err))}</span>`, actions: [{ text: '关闭', primary: true }] });
             }
           } },
         { text: '仅补充缺失', primary: true, onClick: async () => {
@@ -1770,22 +1156,21 @@ function bind() {
                 actions: [{ text: '知道了', primary: true }]
               });
             } catch (err) {
-              openModal({ title: '恢复失败', bodyHTML: `<span class="err">${errHtml(err)}</span>`, actions: [{ text: '关闭', primary: true }] });
+              openModal({ title: '恢复失败', bodyHTML: `<span style="color:#b91c1c">${escapeHtml(err.message || String(err))}</span>`, actions: [{ text: '关闭', primary: true }] });
             }
           } }
       ]
     });
   });
 
-  $('btnPhonetic').addEventListener('click', autoFillPhonetic);
-
   $('btnClear').addEventListener('click', () => {
     openModal({
       title: '清空全部数据',
-      bodyHTML: '将删除<b>所有单词、学习状态、生词本</b>，且不可恢复。\n建议先导出备份。',
+      bodyHTML: '将删除<b>所有单词、学习状态、生词本</b>，且不可恢复。\n点击确定时会<b>先自动下载一份备份</b>。',
       actions: [
         { text: '取消' },
         { text: '确定清空', danger: true, onClick: async () => {
+            try { if (state.words.length) await exportBackup('all'); } catch (e) { }
             await dbClear('words'); await dbClear('notebooks');
             state.sel.learning.clear(); state.sel.done.clear();
             state.day = ''; state.keyword = ''; state.nbDay = '';
@@ -1799,19 +1184,348 @@ function bind() {
 }
 
 /* ============================ 小工具 ============================ */
-function errHtml(e) {
-  return escapeHtml(String((e && e.message) || e)).replace(/\n/g, '<br>');
-}
-
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 function escapeAttr(s) { return escapeHtml(s); }
 
+/* ============================ v3 新增 ============================ */
+function dayCmp(a, b) { return String(a).localeCompare(String(b), 'zh', { numeric: true }); }
+
+async function saveUI() {
+  try { await dbPutMany('meta', [{ k: 'ui', onlineTts: state.onlineTts, accent: state.accent, view: state.view }]); } catch (e) { }
+}
+function applyDoneMode() {
+  [['done', $('colDone')], ['nb', document.querySelector('.nb')]].forEach(([k, el]) => {
+    const v = state.view[k];
+    el.classList.toggle('hide-w', !v.w);
+    el.classList.toggle('hide-p', !v.p);
+    el.classList.toggle('hide-m', !v.m);
+    el.querySelectorAll('.chips .chip').forEach(b => b.classList.toggle('on', !!v[b.dataset.k]));
+  });
+}
+
+function openWordEditor(w) {
+  const isNew = !w;
+  const v = w || { day: state.day || '', word: '', phonetic: '', meaning: '' };
+  const f = (k, lab) => '<label style="display:block;margin-top:8px;font-size:12px;color:#6b7280">' + lab +
+    '<input data-k="' + k + '" type="text" value="' + escapeAttr(v[k] || '') + '"></label>';
+  const acts = [{ text: '取消' }];
+  if (!isNew) acts.push({ text: '删除', danger: true, onClick: () => deleteWords([w.id]) });
+  acts.push({
+    text: '保存', primary: true,
+    validate: (_, m) => {
+      if (!m.querySelector('[data-k=word]').value.trim()) { toast('单词不能为空'); return false; }
+      return true;
+    },
+    onClick: (_, m) => {
+      const g = k => m.querySelector('[data-k=' + k + ']').value;
+      saveWord(w, { day: g('day'), word: g('word'), phonetic: g('phonetic'), meaning: g('meaning') });
+    }
+  });
+  openModal({
+    title: isNew ? '添加单词' : '编辑单词',
+    bodyHTML: f('day', '日期 / 分组') + f('word', '单词') + f('phonetic', '音标') + f('meaning', '释义'),
+    actions: acts
+  });
+}
+
+async function saveWord(old, f) {
+  const day = f.day.trim() || '未分组', word = f.word.trim();
+  const id = day + '|' + word;
+  if ((!old || old.id !== id) && state.words.some(x => x.id === id)) return toast('该日期下已有同名单词');
+  const base = old || { status: 'learning', folderId: null, createdAt: Date.now() };
+  const rec = { ...base, id, day, word, phonetic: f.phonetic.trim(), meaning: f.meaning.trim() };
+  if (old && old.id !== id) await dbDeleteMany('words', [old.id]);
+  await dbPutMany('words', [rec]);
+  state.sel.learning.clear(); state.sel.done.clear();
+  await reloadAll();
+  toast(old ? '已保存' : '已添加');
+}
+
+async function deleteWords(ids) {
+  await dbDeleteMany('words', ids);
+  state.sel.learning.clear(); state.sel.done.clear();
+  await reloadAll();
+  toast('已删除 ' + ids.length + ' 个单词');
+}
+
+/* ============================ 联网补全（音标 + 中文释义） ============================ */
+const WORD_RE = /^[A-Za-z][A-Za-z'’\- ]*$/;
+const WEEK = 7 * 24 * 3600 * 1000;
+let fillBusy = false;
+
+function missingList(ignoreTried) {
+  return state.words.filter(w => WORD_RE.test(w.word) && (!w.phonetic || !w.meaning) &&
+    (ignoreTried || !w.tried || Date.now() - w.tried > WEEK));
+}
+
+async function fetchJSON(url) {
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(), 8000);
+  try {
+    const r = await fetch(url, { signal: ac.signal });
+    return r.ok ? await r.json() : null;
+  } finally { clearTimeout(t); }
+}
+
+const phCache = new Map();
+async function phoneticOf(word) {
+  const k = word.toLowerCase();
+  if (phCache.has(k)) return phCache.get(k);
+  const d = await fetchJSON('https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(word));
+  const e = d && d[0];
+  const p = (e && (e.phonetic || ((e.phonetics || []).find(x => x.text) || {}).text)) || '';
+  phCache.set(k, p);
+  return p;
+}
+
+async function fillMissing(quiet) {
+  if (fillBusy) return;
+  if (navigator.onLine === false) { if (!quiet) toast('当前没有网络'); return; }
+  const todo = missingList(!quiet);
+  if (!todo.length) { if (!quiet) toast('没有需要补全的单词'); return; }
+  fillBusy = true;
+  let i = 0;
+  const found = new Map(), tried = new Set();
+  const one = async () => {
+    while (i < todo.length) {
+      const w = todo[i++];
+      const add = {};
+      let thrown = false;
+      if (!w.phonetic) {
+        try {
+          const parts = w.word.split(/\s+/);
+          if (parts.length <= 6) {
+            const ps = [];
+            for (const part of parts) ps.push(await phoneticOf(part));
+            if (ps.every(Boolean)) {
+              add.phonetic = parts.length === 1 ? ps[0] :
+                '/' + ps.map(x => x.replace(/^[\/\[]|[\/\]]$/g, '')).join(' ') + '/';
+            }
+          }
+        } catch (e) { thrown = true; }
+      }
+      if (!w.meaning) {
+        try {
+          const d = await fetchJSON('https://api.mymemory.translated.net/get?langpair=en|zh-CN&q=' + encodeURIComponent(w.word));
+          const m = d && d.responseData && d.responseData.translatedText;
+          if (m && /[\u4e00-\u9fff]/.test(m)) add.meaning = String(m).trim();
+        } catch (e) { thrown = true; }
+      }
+      if (add.phonetic || add.meaning) found.set(w.id, add);
+      if (!thrown) tried.add(w.id);
+      toast('联网补全中 ' + i + '/' + todo.length);
+    }
+  };
+  await Promise.all([one(), one(), one(), one()]);
+  const map = new Map(state.words.map(w => [w.id, w]));
+  const upd = [];
+  let filled = 0;
+  tried.forEach(id => {
+    const cur = map.get(id);
+    if (!cur) return;
+    const n = { ...cur, tried: Date.now() };
+    const a = found.get(id);
+    if (a) {
+      if (!n.phonetic && a.phonetic) n.phonetic = a.phonetic;
+      if (!n.meaning && a.meaning) n.meaning = a.meaning;
+      filled++;
+    }
+    upd.push(n);
+  });
+  if (upd.length) await dbPutMany('words', upd);
+  fillBusy = false;
+  await reloadAll();
+  const left = missingList(true).length;
+  if (quiet) toast('已联网补全 ' + filled + ' 个单词' + (left ? '，' + left + ' 个没查到' : ''));
+  else openModal({
+    title: '联网补全完成',
+    bodyHTML: '成功补全 <b>' + filled + '</b> 个' + (left ? '；还有 <b>' + left + '</b> 个没查到（词组、生僻词或网络问题）' : '') +
+      (!filled && left ? '<br><br>可能没有联网，或查询服务暂时不可用。' : ''),
+    actions: [{ text: '知道了', primary: true }]
+  });
+}
+
+/* ============================ 智能导入（自动识别列） ============================ */
+const PH_FULL = /^[\/\[\(].{1,50}[\/\]\)]$/;
+const PH_FIND = /\/[^\/\n]{1,40}\/|\[[^\]\n]{1,40}\]/;
+const IPA = /[ˈˌəɪʊæɑɔʃʒθðŋɜɒʌː]/;
+const CJK = /[\u3000-\u9fff\uff00-\uffef]/;
+const EN_RE = /^[A-Za-z][A-Za-z'’.\- ]*$/;
+const DAY_RE = /^(day\s*)?\d{1,4}$|^\d{4}[-\/.]\d{1,2}[-\/.]\d{1,2}$|^第\s*\d+\s*天$/i;
+
+/* 把「apple /ˈæpl/ n. 苹果」这类混写拆成 单词 / 音标 / 释义 */
+function splitMixed(t) {
+  t = String(t == null ? '' : t).trim();
+  let ph = '';
+  const pm = t.match(PH_FIND);
+  if (pm && IPA.test(pm[0])) { ph = pm[0]; t = (t.slice(0, pm.index) + ' ' + t.slice(pm.index + pm[0].length)).trim(); }
+  const ci = t.search(CJK);
+  let w = ci < 0 ? t : t.slice(0, ci);
+  let mn = ci < 0 ? '' : t.slice(ci);
+  const pos = w.match(/\s+((?:[a-z]{1,5}\.\s*)+)$/i);
+  if (pos && ci >= 0) { mn = pos[1].trim() + ' ' + mn; w = w.slice(0, pos.index); }
+  w = w.replace(/^[\d.\s、)）]+/, '').replace(/[\s\-–—:：,，;；]+$/, '').trim();
+  return { word: w, phonetic: ph, meaning: mn.trim() };
+}
+
+function smartRows(rows) {
+  rows = rows.map(r => (Array.isArray(r) ? r : [r]).map(c => String(c == null ? '' : c).trim()))
+    .filter(r => r.some(c => c));
+  if (!rows.length) throw new Error('文件是空的，没有读到任何行。');
+  const today = new Date().toLocaleDateString('sv-SE');
+  const idx = mapHeaders(rows[0]);
+  const hasHeader = idx.word !== undefined || Object.keys(idx).length >= 2;
+  const data = hasHeader ? rows.slice(1) : rows;
+  const ncol = Math.max(...rows.map(r => r.length));
+  const cm = {};
+  if (hasHeader && idx.word !== undefined) Object.assign(cm, idx);
+  else if (ncol > 1) {
+    const sample = data.slice(0, 60), n = Math.max(sample.length, 1);
+    const cols = [...Array(ncol).keys()].map(c => {
+      const ratio = f => sample.filter(r => f(r[c] || '')).length / n;
+      return { c, day: ratio(v => DAY_RE.test(v)), ph: ratio(v => PH_FULL.test(v) && !CJK.test(v)),
+        en: ratio(v => EN_RE.test(v)), zh: ratio(v => CJK.test(v)) };
+    });
+    const used = [];
+    const pick = (key, min) => {
+      let best = -1, bs = min - 1e-9;
+      cols.forEach(o => { if (!used.includes(o.c) && o[key] > bs) { bs = o[key]; best = o.c; } });
+      if (best >= 0) used.push(best);
+      return best;
+    };
+    const d = pick('day', 0.8), p = pick('ph', 0.5), w = pick('en', 0.5), m = pick('zh', 0.5);
+    if (d >= 0) cm.day = d;
+    if (p >= 0) cm.phonetic = p;
+    if (w >= 0) cm.word = w;
+    if (m >= 0) cm.meaning = m;
+  }
+  const out = [];
+  data.forEach(r => {
+    let word, phonetic = '', meaning = '', day = '';
+    if (cm.word !== undefined) {
+      word = r[cm.word] || '';
+      if (cm.phonetic !== undefined) phonetic = r[cm.phonetic] || '';
+      if (cm.meaning !== undefined) meaning = r[cm.meaning] || '';
+      if (cm.day !== undefined) day = r[cm.day] || '';
+      if (CJK.test(word) || PH_FIND.test(word)) {
+        const s = splitMixed(word);
+        word = s.word; phonetic = phonetic || s.phonetic; meaning = meaning || s.meaning;
+      }
+      if (cm.meaning === undefined && !meaning) {
+        const used = Object.values(cm);
+        meaning = r.filter((c, i) => c && !used.includes(i)).join('；');
+      }
+    } else {
+      const s = splitMixed(r.join(' '));
+      word = s.word; phonetic = s.phonetic; meaning = s.meaning;
+    }
+    word = String(word).replace(/\s+/g, ' ').trim();
+    if (!word || !/[A-Za-z]/.test(word)) return;
+    if (phonetic && !/^[\/\[]/.test(phonetic)) phonetic = '/' + phonetic + '/';
+    out.push({ day: String(day).trim() || today, word, phonetic, meaning: String(meaning).trim() });
+  });
+  if (!out.length) throw new Error('没有识别到有效的英文单词，请检查文件内容。');
+  return out;
+}
+
+/* ============================ 导出表格（Excel / CSV） ============================ */
+async function exportSheet() {
+  const all = sortWords(await dbGetAll('words'));
+  const folders = new Map((await dbGetAll('notebooks')).map(f => [f.id, f.name]));
+  const rows = [['日期', '单词', '音标', '释义', '状态', '生词本']].concat(all.map(w => [
+    w.day, w.word, w.phonetic || '', w.meaning || '', w.status === 'done' ? '已完成' : '正在学',
+    w.folderId ? (folders.get(w.folderId) || '') : '']));
+  const stamp = new Date().toISOString().slice(0, 10);
+  try {
+    const X = await loadSheetJS();
+    const wb = X.utils.book_new();
+    X.utils.book_append_sheet(wb, X.utils.aoa_to_sheet(rows), '单词');
+    X.writeFile(wb, '背单词_' + stamp + '.xlsx');
+    toast('已导出 ' + all.length + ' 个单词（Excel）');
+  } catch (e) {
+    const csv = '\uFEFF' + rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\r\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = '背单词_' + stamp + '.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+    toast('Excel 库没加载成功，已改为导出 CSV');
+  }
+}
+
+function renameDay() {
+  const old = state.day;
+  if (!old) return toast('请先在日期下拉框里选中一个分组');
+  openModal({
+    title: '重命名分组',
+    bodyHTML: '改成已有的名字，就会合并到那个分组（重复的单词保留原有那条）。',
+    input: { value: old, placeholder: '新名称，例如 Unit3' },
+    actions: [{ text: '取消' }, {
+      text: '确定', primary: true,
+      validate: (el) => { if (!el.value.trim()) { toast('名称不能为空'); return false; } return true; },
+      onClick: async (el) => {
+        const nd = el.value.trim();
+        if (nd === old) return;
+        const mine = state.words.filter(w => String(w.day) === String(old));
+        const exist = new Set(state.words.filter(w => String(w.day) === nd).map(w => w.word));
+        const move = [];
+        mine.forEach(w => { if (!exist.has(w.word)) move.push({ ...w, day: nd, id: nd + '|' + w.word }); });
+        if (move.length) await dbPutMany('words', move);
+        await dbDeleteMany('words', mine.map(w => w.id));
+        if (state.nbDay === old) state.nbDay = nd;
+        state.day = nd;
+        state.sel.learning.clear(); state.sel.done.clear();
+        await reloadAll();
+        const skipped = mine.length - move.length;
+        toast('已改名为「' + nd + '」' + (skipped ? '，合并时跳过 ' + skipped + ' 个重复单词' : ''));
+      }
+    }]
+  });
+}
+
+function bind2() {
+  $('btnAdd').addEventListener('click', () => openWordEditor(null));
+  $('btnRenameDay').addEventListener('click', renameDay);
+  $('btnPhon').addEventListener('click', () => {
+    const n = missingList(true).length;
+    if (!n) return toast('没有需要补全的单词');
+    openModal({
+      title: '联网补全',
+      bodyHTML: '共 <b>' + n + '</b> 个单词缺音标或释义，将联网查询（音标：dictionaryapi.dev；中文释义：MyMemory 机器翻译）。只填空、不覆盖已有内容；机器翻译可能不够准确，建议之后抽查。',
+      actions: [{ text: '取消' }, { text: '开始', primary: true, onClick: () => fillMissing(false) }]
+    });
+  });
+  const del = (set) => {
+    const ids = [...set];
+    openModal({
+      title: '删除 ' + ids.length + ' 个单词',
+      bodyHTML: '删除后不可恢复，建议先导出备份。',
+      actions: [{ text: '取消' }, { text: '删除', danger: true, onClick: () => deleteWords(ids) }]
+    });
+  };
+  $('delLearning').addEventListener('click', () => del(state.sel.learning));
+  $('delDone').addEventListener('click', () => del(state.sel.done));
+  document.querySelectorAll('.chips').forEach(box => box.addEventListener('click', e => {
+    const b = e.target.closest('.chip');
+    if (!b) return;
+    const v = state.view[box.dataset.scope];
+    v[b.dataset.k] = !v[b.dataset.k];
+    applyDoneMode(); saveUI();
+  }));
+  $('accent').addEventListener('change', e => { state.accent = e.target.value; tts.pick(); saveUI(); });
+  window.addEventListener('online', () => fillMissing(true));
+}
+
 /* ============================ 启动 ============================ */
 (async function init() {
   bind();
+  bind2();
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { }
   await reloadAll();
+  tts.pick();
+  setTimeout(() => fillMissing(true), 1500);
 })();
 </script>
 </body>
