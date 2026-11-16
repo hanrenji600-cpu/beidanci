@@ -45,6 +45,7 @@
   .col-head .spacer{flex:1}
   .col-tools{display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px dashed var(--line);background:#fcfcfd}
   .sel-info{font-size:12px;color:var(--sub);align-self:center;margin-right:auto}
+  #accentSel{width:auto;flex:0 0 auto;padding:8px 24px 8px 10px;font-size:13px}
   .col-body{padding:8px;display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow:auto}
   .card{position:relative;display:flex;gap:9px;align-items:flex-start;
     border:1px solid var(--line);border-radius:10px;padding:9px 10px;background:var(--card)}
@@ -146,6 +147,10 @@
     <label class="chkbox" title="系统没有英文语音时，用在线发音代替（需联网）">
       <input type="checkbox" id="onlineTts" checked> 在线发音
     </label>
+    <select id="accentSel" title="在线发音口音">
+      <option value="2">美音</option>
+      <option value="1">英音</option>
+    </select>
     <span class="sel-info" id="totalInfo"></span>
   </div>
 
@@ -433,6 +438,11 @@ async function reloadAll() {
     const cb = $('onlineTts');
     if (cb) cb.checked = ui.onlineTts;
   }
+  if (ui && (ui.accent === 1 || ui.accent === 2)) {
+    state.accent = ui.accent;
+  }
+  const accSel = $('accentSel');
+  if (accSel) accSel.value = String(state.accent || 2);
   if (ui && ui.doneShow && typeof ui.doneShow === 'object') {
     const d = ui.doneShow;
     state.doneShow = {
@@ -447,7 +457,7 @@ async function reloadAll() {
 }
 
 function saveUi() {
-  return dbPutMany('meta', [{ k: 'ui', onlineTts: state.onlineTts, doneShow: state.doneShow }]);
+  return dbPutMany('meta', [{ k: 'ui', onlineTts: state.onlineTts, doneShow: state.doneShow, accent: state.accent }]);
 }
 
 function updateDoneShowLabel() {
@@ -1849,6 +1859,13 @@ function bind() {
     state.keyword = e.target.value;
     state.sel.learning.clear(); state.sel.done.clear();
     renderColumns();
+  });
+
+  $('accentSel').addEventListener('change', async e => {
+    state.accent = Number(e.target.value) === 1 ? 1 : 2;
+    try { audioCache.clear(); } catch (err) { }
+    await saveUi();
+    toast(state.accent === 1 ? '已切换为英音' : '已切换为美音');
   });
 
   $('onlineTts').addEventListener('change', async e => {
