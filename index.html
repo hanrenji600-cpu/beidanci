@@ -46,6 +46,12 @@
   .col-tools{display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px dashed var(--line);background:#fcfcfd}
   .sel-info{font-size:12px;color:var(--sub);align-self:center;margin-right:auto}
   #accentSel{width:auto;flex:0 0 auto;padding:8px 24px 8px 10px;font-size:13px}
+  .pills{display:inline-flex;gap:6px;align-items:center;flex:0 0 auto}
+  .pill{border:1px solid #e5e7eb;background:#fff;border-radius:999px;padding:4px 11px;
+    font-size:12px;color:#6b7280;cursor:pointer;transition:.15s;line-height:1.4}
+  .pill:hover{border-color:#c7d2fe}
+  .pill.on{background:#eff6ff;border-color:#93c5fd;color:#2563eb;font-weight:600}
+  .hide-mn .mn{display:none !important}
   .col-body{padding:8px;display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow:auto}
   .card{position:relative;display:flex;gap:9px;align-items:flex-start;
     border:1px solid var(--line);border-radius:10px;padding:9px 10px;background:var(--card)}
@@ -63,8 +69,8 @@
   .card .mn{font-size:13px;color:#374151;margin-top:5px;line-height:1.45;word-break:break-word}
   /* 右栏：默认隐藏释义，长按显示 */
   .col.done .card .mn{display:none}
-  .col.done .card.hide-w .wrow{display:none}
-  .col.done .card.hide-ph .ph{display:none}
+  .col.done .card.hide-w .wrow{display:none !important}
+  .col.done .card.hide-ph .ph{display:none !important}
   .col.done .card.show-mn .mn{display:block}
   .col.done .hint{display:inline-block;font-size:11px;color:#9ca3af;margin-top:4px}
   .col.done .card.reveal .hint{display:none}
@@ -124,6 +130,16 @@
   .toast.show{opacity:1}
   .hidden{display:none !important}
   body.dragging::after{content:"松开即可导入";position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;font-size:20px;color:#2563eb;background:rgba(239,246,255,.85);border:3px dashed #2563eb;pointer-events:none}
+
+  /* 生词本条目：按显示设置隐藏 / 长按展开 */
+  .nb-item.hide-w .wrow{display:none !important}
+  .nb-item.hide-ph .ph{display:none !important}
+  .nb-item.hide-mn .mn{display:none !important}
+  .nb-item.reveal .wrow{display:flex !important}
+  .nb-item.reveal .ph{display:block !important}
+  .nb-item.reveal .mn{display:block !important}
+  .nb-item .hint{display:inline-block;font-size:11px;color:#9ca3af;margin-top:2px}
+  .nb-item.reveal .hint{display:none !important}
 </style>
 </head>
 <body>
@@ -175,7 +191,11 @@
         <span class="name">已完成</span>
         <span class="count" id="cntDone">0</span>
         <span class="spacer"></span>
-        <button class="btn ghost" id="btnDoneShow" title="选择右栏显示哪些内容">显示：单词+音标</button>
+        <span class="pills" id="donePills">
+          <button class="pill" data-k="w" type="button">英语</button>
+          <button class="pill" data-k="ph" type="button">音标</button>
+          <button class="pill" data-k="mn" type="button">汉语</button>
+        </span>
         <button class="btn ghost" id="selAllDone">全选</button>
       </div>
       <div class="col-tools">
@@ -193,6 +213,11 @@
       <select id="folderSelect" title="切换文件夹"></select>
       <button class="btn" id="btnNewFolder">新建文件夹</button>
       <button class="btn danger" id="btnDelFolder">删除文件夹</button>
+      <span class="pills" id="nbPills">
+        <button class="pill" data-k="w" type="button">英语</button>
+        <button class="pill" data-k="ph" type="button">音标</button>
+        <button class="pill" data-k="mn" type="button">汉语</button>
+      </span>
       <select id="nbDaySelect" title="按天筛选生词"></select>
     </div>
     <div class="nb-body" id="nbBody"></div>
@@ -218,7 +243,8 @@ const state = {
   folder: DEFAULT_FOLDER,
   nbDay: '',        // 生词本按天筛选
   onlineTts: true,  // 无英文语音时是否用在线发音
-  doneShow: { hide: true, w: true, ph: true, mn: false },  // 右栏显示设置
+  doneShow: { w: true, ph: true, mn: false },   // 已完成栏：显示哪些
+  nbShow: { w: true, ph: true, mn: true },      // 生词本：显示哪些
   accent: 2,        // 在线发音口音：1=英音 2=美音
   words: [],        // 全量内存缓存
   folders: [],
@@ -445,104 +471,37 @@ async function reloadAll() {
   if (accSel) accSel.value = String(state.accent || 2);
   if (ui && ui.doneShow && typeof ui.doneShow === 'object') {
     const d = ui.doneShow;
-    state.doneShow = {
-      hide: d.hide !== false,
-      w: d.w !== false,
-      ph: d.ph !== false,
-      mn: !!d.mn
-    };
+    state.doneShow.w = d.w !== false;
+    state.doneShow.ph = d.ph !== false;
+    state.doneShow.mn = d.mn === true || (d.hide === false);
+  }
+  if (ui && ui.nbShow && typeof ui.nbShow === 'object') {
+    const n = ui.nbShow;
+    state.nbShow.w = n.w !== false;
+    state.nbShow.ph = n.ph !== false;
+    state.nbShow.mn = n.mn !== false;
   }
   updateDoneShowLabel();
   renderAll();
 }
 
 function saveUi() {
-  return dbPutMany('meta', [{ k: 'ui', onlineTts: state.onlineTts, doneShow: state.doneShow, accent: state.accent }]);
+  return dbPutMany('meta', [{ k: 'ui', onlineTts: state.onlineTts, doneShow: state.doneShow, nbShow: state.nbShow, accent: state.accent }]);
 }
 
 function updateDoneShowLabel() {
-  const btn = $('btnDoneShow');
-  if (!btn) return;
-  const s = state.doneShow;
-  if (!s.hide) { btn.textContent = '显示：全部'; return; }
-  const parts = [];
-  if (s.w) parts.push('单词');
-  if (s.ph) parts.push('音标');
-  if (s.mn) parts.push('释义');
-  btn.textContent = '显示：' + (parts.length ? parts.join('+') : '无');
+  syncPills('donePills', state.doneShow);
+  syncPills('nbPills', state.nbShow);
 }
 
-function openDoneShow() {
-  const s = state.doneShow;
-  const html = `
-  <div style="font-size:13px;line-height:1.7">
-    <div class="opt" data-target="dsHide">
-      <input type="checkbox" id="dsHide" ${s.hide ? 'checked' : ''}>
-      <span>开启遮挡（关掉则三项全部显示，不遮挡）</span>
-    </div>
-    <div class="opt" data-target="dsW">
-      <input type="checkbox" id="dsW" ${s.w ? 'checked' : ''}><span>单词</span>
-    </div>
-    <div class="opt" data-target="dsPh">
-      <input type="checkbox" id="dsPh" ${s.ph ? 'checked' : ''}><span>音标</span>
-    </div>
-    <div class="opt" data-target="dsMn">
-      <input type="checkbox" id="dsMn" ${s.mn ? 'checked' : ''}><span>释义</span>
-    </div>
-    <div style="font-size:12px;color:#6b7280;margin-top:12px;line-height:1.6">
-      勾上的内容正常显示，没勾的默认隐藏；<b>长按卡片</b>可临时把隐藏项全部显示出来。<br>
-      只作用于右侧「已完成」栏，左栏和生词本不受影响。
-    </div>
-  </div>`;
-  const mask = openModal({
-    title: '已完成栏显示设置',
-    bodyHTML: html,
-    actions: [{ text: '完成', primary: true }]
-  });
-
-  async function applyDoneShow() {
-    const hide = document.getElementById('dsHide').checked;
-    let w = document.getElementById('dsW').checked;
-    let ph = document.getElementById('dsPh').checked;
-    let mn = document.getElementById('dsMn').checked;
-    if (hide && !w && !ph && !mn) {
-      document.getElementById('dsW').checked = true;
-      w = true;
-      toast('开启遮挡时至少要勾选一项，已自动勾选「单词」');
-    }
-    syncDisabled();
-    state.doneShow = { hide, w, ph, mn };
-    try { await saveUi(); } catch (e) { }
-    updateDoneShowLabel();
-    renderColumns();
-  }
-
-  // 关闭遮挡时，三项勾选不起作用 → 置灰禁用
-  function syncDisabled() {
-    const hide = document.getElementById('dsHide').checked;
-    ['dsW', 'dsPh', 'dsMn'].forEach(id => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.disabled = !hide;
-      const row = el.closest('.opt');
-      if (row) row.classList.toggle('disabled', !hide);
-    });
-  }
-  syncDisabled();
-
-  // 整行都能点；任何改动立即生效并保存（不用再点保存）
-  mask.querySelectorAll('.opt').forEach(row => {
-    const box = row.querySelector('input[type=checkbox]');
-    box.addEventListener('click', (e) => e.stopPropagation());
-    box.addEventListener('change', applyDoneShow);
-    row.addEventListener('click', (e) => {
-      if (e.target === box) return;      // 点复选框本身：走原生 + change
-      e.preventDefault();
-      box.checked = !box.checked;
-      applyDoneShow();
-    });
+function syncPills(id, st) {
+  const box = $(id);
+  if (!box) return;
+  box.querySelectorAll('.pill').forEach(b => {
+    b.classList.toggle('on', !!st[b.dataset.k]);
   });
 }
+
 
 /* ============================ 渲染 ============================ */
 function currentFilter() {
@@ -563,6 +522,38 @@ function sortWords(list) {
     if (d !== 0) return d;
     return (a.createdAt || 0) - (b.createdAt || 0);
   });
+}
+
+/* 按“显示设置”隐藏卡片里的字段 */
+function applyShow(card, st) {
+  card.classList.toggle('hide-w', !st.w);
+  card.classList.toggle('hide-ph', !st.ph);
+  card.classList.toggle('hide-mn', !st.mn);
+  card.classList.toggle('show-mn', !!st.mn);
+}
+
+function hiddenOf(st) {
+  const a = [];
+  if (!st.w) a.push('英语');
+  if (!st.ph) a.push('音标');
+  if (!st.mn) a.push('汉语');
+  return a;
+}
+
+function attachReveal(card, body, hiddenLabels) {
+  const hint = document.createElement('span');
+  hint.className = 'hint';
+  hint.textContent = hiddenLabels.length ? '长按查看：' + hiddenLabels.join('、') : '';
+  body.appendChild(hint);
+  if (!hiddenLabels.length) return;
+  let timer = null;
+  const show = () => card.classList.add('reveal');
+  const hide = () => card.classList.remove('reveal');
+  body.addEventListener('pointerdown', () => { timer = setTimeout(show, 320); });
+  body.addEventListener('pointerup', () => { clearTimeout(timer); hide(); });
+  body.addEventListener('pointerleave', () => { clearTimeout(timer); hide(); });
+  body.addEventListener('pointercancel', () => { clearTimeout(timer); hide(); });
+  body.addEventListener('contextmenu', e => e.preventDefault());
 }
 
 function makeCard(w, isDone) {
@@ -614,21 +605,8 @@ function makeCard(w, isDone) {
   }
 
   if (isDone) {
-    const s = state.doneShow;
-    if (s.hide) {
-      if (!s.w) card.classList.add('hide-w');
-      if (!s.ph) card.classList.add('hide-ph');
-      if (s.mn) card.classList.add('show-mn');
-    } else {
-      card.classList.add('show-w', 'show-ph', 'show-mn');
-    }
-
-    const hiddenLabels = [];
-    if (s.hide) {
-      if (!s.w) hiddenLabels.push('单词');
-      if (!s.ph) hiddenLabels.push('音标');
-      if (!s.mn) hiddenLabels.push('释义');
-    }
+    applyShow(card, state.doneShow);
+    const hiddenLabels = hiddenOf(state.doneShow);
     const hint = document.createElement('span');
     hint.className = 'hint';
     hint.textContent = hiddenLabels.length ? '长按查看：' + hiddenLabels.join('、') : '';
@@ -733,6 +711,8 @@ function renderNotebook() {
     row.querySelector('.w').textContent = w.word;
     row.querySelector('.ph').textContent = w.phonetic || '';
     row.querySelector('.mn').textContent = w.meaning || '';
+    applyShow(row, state.nbShow);
+    attachReveal(row, row.querySelector('.body'), hiddenOf(state.nbShow));
     row.querySelector('.spk').addEventListener('click', (e) => { e.stopPropagation(); speak(w.word); });
     const rm = document.createElement('button');
     rm.className = 'btn danger';
@@ -1874,7 +1854,6 @@ function bind() {
     toast(state.onlineTts ? '已开启在线发音' : '已关闭在线发音');
   });
 
-  $('btnDoneShow').addEventListener('click', openDoneShow);
 
   $('selAllLearning').addEventListener('click', () => {
     const ids = visibleIds(false);
@@ -1884,6 +1863,23 @@ function bind() {
     if (!all) ids.forEach(id => set.add(id));
     renderColumns();
   });
+
+  const bindPills = (id, st, after) => {
+    const box = $(id);
+    if (!box) return;
+    box.addEventListener('click', async (e) => {
+      const b = e.target.closest('.pill');
+      if (!b) return;
+      e.stopPropagation();
+      const k = b.dataset.k;
+      st[k] = !st[k];
+      updateDoneShowLabel();
+      after();
+      await saveUi();
+    });
+  };
+  bindPills('donePills', state.doneShow, renderColumns);
+  bindPills('nbPills', state.nbShow, renderNotebook);
 
   $('selAllDone').addEventListener('click', () => {
     const ids = visibleIds(true);
