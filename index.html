@@ -1545,6 +1545,34 @@ async function datamuseIpa(word) {
   } catch (e) { return ''; }
 }
 
+/* 用 Datamuse 的 tags 取词性：n / v / adj / adv */
+const POS_TAG_MAP = { n: 'n.', v: 'v.', adj: 'adj.', adv: 'adv.' };
+const posCache = new Map();
+
+async function datamusePos(word) {
+  const w = String(word || '').trim().toLowerCase().replace(/[^a-z'\-]/g, '');
+  if (!w || /\s/.test(w)) return '';
+  if (posCache.has(w)) return posCache.get(w);
+  try {
+    const res = await fetch('https://api.datamuse.com/words?sp=' + encodeURIComponent(w) + '&md=p&max=3');
+    if (!res.ok) { posCache.set(w, ''); return ''; }
+    const arr = await res.json();
+    let out = '';
+    for (const it of (arr || [])) {
+      if (String(it.word).toLowerCase() !== w) continue;
+      const tags = it.tags || [];
+      let hit = '';
+      for (const t of tags) {
+        const k = String(t).toLowerCase().trim();
+        if (POS_TAG_MAP[k]) { hit = POS_TAG_MAP[k]; break; }
+      }
+      if (hit) { out = hit; break; }
+    }
+    posCache.set(w, out);
+    return out;
+  } catch (e) { return ''; }
+}
+
 async function dictApiIpa(w) {
   try {
     const res = await fetch(IPA_API + encodeURIComponent(w), { headers: { Accept: 'application/json' } });
@@ -1598,52 +1626,71 @@ async function runWithLimit(items, limit, fn, onDone) {
 }
 
 function autoFillPhonetic() {
-  const missing = state.words.filter(w => !w.phonetic);
-  if (!missing.length) { toast('所有单词都已有音标了'); return; }
-  const single = missing.filter(w => !/\s/.test(w.word));
-  const phrase = missing.filter(w => /\s/.test(w.word));
+  const missPh = state.words.filter(w => !w.phonetic);
+  const missPos = state.words.filter(w => !w.pos && !/\s/.test(w.word));
+  const targets = state.words.filter(w => !w.phonetic || (!w.pos && !/\s/.test(w.word)));
+  if (!targets.length) { toast('音标和词性都已经齐了'); return; }
+  const single = targets.filter(w => !/\s/.test(w.word));
+  const phrase = targets.filter(w => /\s/.test(w.word));
   openModal({
-    title: '在线补音标',
-    bodyHTML: '共 <b>' + missing.length + '</b> 个词缺音标：' +
-      '<br>· 单词 <b>' + single.length + '</b> 个（直接查词典）' +
-      '<br>· 短语 <b>' + phrase.length + '</b> 个（逐词查再拼起来，可能查不全）' +
-      '<br><br>需要联网，大约 ' + Math.max(3, Math.ceil(missing.length / 3 * 0.5)) + ' 秒。查不到的词会跳过，不影响原有数据。',
+    title: '在线补全（音标 + 词性）',
+    bodyHTML: '共 <b>' + targets.length + '</b> 个词待补：' +
+      '<br>· 缺音标 <b>' + missPh.length + '</b> 个' +
+      '<br>· 缺词性 <b>' + missPos.length + '</b> 个（短语不补词性）' +
+      '<br><br>其中单词 <b>' + single.length + '</b> 个、短语 <b>' + phrase.length + '</b> 个。' +
+      '需要联网，大约 ' + Math.max(3, Math.ceil(targets.length / 3 * 0.6)) + ' 秒。查不到的会跳过，不影响已有数据。',
     actions: [
       { text: '取消' },
-      { text: '开始补全', primary: true, onClick: () => doFillPhonetic(missing) }
+      { text: '开始补全', primary: true, onClick: () => doFillPhonetic(targets) }
     ]
   });
 }
 
 async function doFillPhonetic(targets) {
   const mask = openModal({
-    title: '正在补音标…',
+    title: '正在补全…',
     bodyHTML: '<div id="fp">0 / ' + targets.length + '</div>',
     actions: []
   });
   const updates = [];
-  let ok = 0;
+  let okPh = 0, okPos = 0;
+  const flush = async () => {
+    if (!updates.length) return;
+    const b = updates.splice(0, updates.length);
+    await dbPutMany('words', b);
+  };
   await runWithLimit(targets, 3, async (w) => {
-    const ipa = await lookupIpa(w.word);
-    if (ipa) { updates.push(Object.assign({}, w, { phonetic: ipa })); ok++; }
-    if (updates.length >= 20) { const b = updates.splice(0, updates.length); await dbPutMany('words', b); }
+    const patch = Object.assign({}, w);
+    let changed = false;
+    if (!w.phonetic) {
+      const ipa = await lookupIpa(w.word);
+      if (ipa) { patch.phonetic = ipa; okPh++; changed = true; }
+    }
+    if (!w.pos && !/\s/.test(w.word)) {
+      const p = await datamusePos(w.word);
+      if (p) { patch.pos = p; okPos++; changed = true; }
+    }
+    if (changed) updates.push(patch);
+    if (updates.length >= 20) await flush();
   }, (done) => {
     if (mask) {
       const el = mask.querySelector('#fp');
-      if (el) el.textContent = done + ' / ' + targets.length + '　成功 ' + ok;
+      if (el) el.textContent = done + ' / ' + targets.length + '　音标 ' + okPh + '　词性 ' + okPos;
     }
   });
-  if (updates.length) await dbPutMany('words', updates);
+  await flush();
   if (mask) mask.remove();
   await reloadAll();
-  const fail = targets.length - ok;
+  const leftPh = state.words.filter(w => !w.phonetic).length;
+  const leftPos = state.words.filter(w => !w.pos && !/\s/.test(w.word)).length;
   openModal({
-    title: '补音标完成',
-    bodyHTML: '成功 <b>' + ok + '</b> 个' + (fail ? '，未查到 <b>' + fail + '</b> 个（多为短语或生僻词）' : '') + '。',
+    title: '补全完成',
+    bodyHTML: '音标成功 <b>' + okPh + '</b> 个' + (leftPh ? '（还差 ' + leftPh + ' 个）' : '') +
+      '<br>词性成功 <b>' + okPos + '</b> 个' + (leftPos ? '（还差 ' + leftPos + ' 个）' : '') +
+      '<br><br>查不到的多是生僻词或短语，可以点卡片上的 ✎ 手动补。',
     actions: [{ text: '知道了', primary: true }]
   });
 }
-
 
 /* ============================ 单词编辑 / 导出 / 混合拆分 ============================ */
 const PH_FIND = /[\/\[][^\/\]\s]{1,40}[\/\]]/;
