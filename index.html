@@ -86,7 +86,14 @@
   .card .quick:hover{background:#f3f4f6}
   .card .star{position:absolute;right:8px;bottom:8px;border:none;background:transparent;cursor:pointer;font-size:14px;color:#d1d5db}
   .card .star.on{color:#f59e0b}
-  .pos{display:inline-block;font-style:italic;color:#9ca3af;margin-right:5px;font-size:12px}
+  .phline{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+  .phline .ph{margin:0}
+  .posrow{font-style:italic;color:#9ca3af;font-size:12px}
+  .posrow.no-data{font-style:normal}
+  .hide-pos .posrow{display:none !important}
+  .reveal .posrow{display:block !important}
+  .nb-item.reveal .posrow{display:block !important}
+  .pills{flex-wrap:wrap}
   .card .edit{position:absolute;right:34px;bottom:8px;border:none;background:transparent;
     cursor:pointer;font-size:13px;color:#d1d5db;padding:0 2px;line-height:1}
   .card .edit:hover{color:var(--primary)}
@@ -198,6 +205,7 @@
           <button class="pill" data-k="w" type="button">英语</button>
           <button class="pill" data-k="ph" type="button">音标</button>
           <button class="pill" data-k="mn" type="button">汉语</button>
+          <button class="pill" data-k="pos" type="button">词性</button>
         </span>
         <button class="btn ghost" id="selAllDone">全选</button>
       </div>
@@ -220,6 +228,7 @@
         <button class="pill" data-k="w" type="button">英语</button>
         <button class="pill" data-k="ph" type="button">音标</button>
         <button class="pill" data-k="mn" type="button">汉语</button>
+        <button class="pill" data-k="pos" type="button">词性</button>
       </span>
       <select id="nbDaySelect" title="按天筛选生词"></select>
     </div>
@@ -246,8 +255,8 @@ const state = {
   folder: DEFAULT_FOLDER,
   nbDay: '',        // 生词本按天筛选
   onlineTts: true,  // 无英文语音时是否用在线发音
-  doneShow: { w: true, ph: true, mn: false },   // 已完成栏：显示哪些
-  nbShow: { w: true, ph: true, mn: true },      // 生词本：显示哪些
+  doneShow: { w: true, ph: true, mn: false, pos: true },   // 已完成栏：显示哪些
+  nbShow: { w: true, ph: true, mn: true, pos: true },      // 生词本：显示哪些
   accent: 2,        // 在线发音口音：1=英音 2=美音
   words: [],        // 全量内存缓存
   folders: [],
@@ -477,12 +486,14 @@ async function reloadAll() {
     state.doneShow.w = d.w !== false;
     state.doneShow.ph = d.ph !== false;
     state.doneShow.mn = d.mn === true || (d.hide === false);
+    state.doneShow.pos = d.pos !== false;
   }
   if (ui && ui.nbShow && typeof ui.nbShow === 'object') {
     const n = ui.nbShow;
     state.nbShow.w = n.w !== false;
     state.nbShow.ph = n.ph !== false;
     state.nbShow.mn = n.mn !== false;
+    state.nbShow.pos = n.pos !== false;
   }
   updateDoneShowLabel();
   renderAll();
@@ -533,6 +544,7 @@ function applyShow(card, st) {
   card.classList.toggle('hide-ph', !st.ph);
   card.classList.toggle('hide-mn', !st.mn);
   card.classList.toggle('show-mn', !!st.mn);
+  card.classList.toggle('hide-pos', !st.pos);
 }
 
 function hiddenOf(st) {
@@ -540,6 +552,7 @@ function hiddenOf(st) {
   if (!st.w) a.push('英语');
   if (!st.ph) a.push('音标');
   if (!st.mn) a.push('汉语');
+  if (!st.pos) a.push('词性');
   return a;
 }
 
@@ -583,7 +596,7 @@ function makeCard(w, isDone) {
   body.innerHTML =
     '<div class="wrow"><span class="w"></span>' +
     '<button class="spk" type="button" title="朗读" aria-label="朗读">' + SPK_SVG + '</button></div>' +
-    '<div class="ph"></div><div class="mn"></div>';
+    '<div class="phline"><span class="ph"></span><span class="posrow"></span></div><div class="mn"></div>';
   body.querySelector('.w').textContent = w.word;
   const phEl = body.querySelector('.ph');
   if (w.phonetic) {
@@ -592,13 +605,13 @@ function makeCard(w, isDone) {
     phEl.textContent = '（无音标）';
     phEl.classList.add('no-data');
   }
-  const mnEl = body.querySelector('.mn');
+  const posEl = body.querySelector('.posrow');
   if (w.pos) {
-    const ps = document.createElement('span');
-    ps.className = 'pos';
-    ps.textContent = w.pos;
-    mnEl.appendChild(ps);
+    posEl.textContent = w.pos;
+  } else {
+    posEl.style.display = 'none';   // 没词性就不占位置
   }
+  const mnEl = body.querySelector('.mn');
   if (w.meaning) {
     mnEl.appendChild(document.createTextNode(w.meaning));
   } else if (!w.pos) {
@@ -716,17 +729,13 @@ function renderNotebook() {
     row.className = 'nb-item';
     row.innerHTML = '<div class="body"><div class="wrow"><span class="w"></span>' +
       '<button class="spk" type="button" title="朗读" aria-label="朗读">' + SPK_SVG + '</button></div>' +
-      '<div class="ph"></div><div class="mn"></div></div>';
+      '<div class="phline"><span class="ph"></span><span class="posrow"></span></div><div class="mn"></div></div>';
     row.querySelector('.w').textContent = w.word;
     row.querySelector('.ph').textContent = w.phonetic || '';
-    const nbMn = row.querySelector('.mn');
-    if (w.pos) {
-      const ps2 = document.createElement('span');
-      ps2.className = 'pos';
-      ps2.textContent = w.pos;
-      nbMn.appendChild(ps2);
-    }
-    nbMn.appendChild(document.createTextNode(w.meaning || ''));
+    const nbPos = row.querySelector('.posrow');
+    nbPos.textContent = w.pos || '';
+    if (!w.pos) nbPos.style.display = 'none';
+    row.querySelector('.mn').textContent = w.meaning || '';
     applyShow(row, state.nbShow);
     attachReveal(row, row.querySelector('.body'), hiddenOf(state.nbShow));
     row.querySelector('.spk').addEventListener('click', (e) => { e.stopPropagation(); speak(w.word); });
@@ -2014,7 +2023,7 @@ function bind() {
     renderColumns();
   });
 
-  const bindPills = (id, st, after) => {
+  const bindPills = (id, key, after) => {
     const box = $(id);
     if (!box) return;
     box.addEventListener('click', async (e) => {
@@ -2022,14 +2031,15 @@ function bind() {
       if (!b) return;
       e.stopPropagation();
       const k = b.dataset.k;
+      const st = state[key];          // 每次取最新对象，避免被整体替换后失效
       st[k] = !st[k];
       updateDoneShowLabel();
       after();
       await saveUi();
     });
   };
-  bindPills('donePills', state.doneShow, renderColumns);
-  bindPills('nbPills', state.nbShow, renderNotebook);
+  bindPills('donePills', 'doneShow', renderColumns);
+  bindPills('nbPills', 'nbShow', renderNotebook);
 
   $('selAllDone').addEventListener('click', () => {
     const ids = visibleIds(true);
