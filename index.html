@@ -73,11 +73,11 @@
   .col.done .card.hide-ph .ph{display:none !important}
   .col.done .card.show-mn .mn{display:block}
   .col.done .hint{display:inline-block;font-size:11px;color:#9ca3af;margin-top:4px}
-  .col.done .card.reveal .hint{display:none}
+  .col.done .card.reveal .hint{display:none !important}
   /* 长按时把隐藏的内容全部显示出来（放在最后，优先级最高） */
-  .col.done .card.reveal .wrow{display:flex}
-  .col.done .card.reveal .ph{display:block}
-  .col.done .card.reveal .mn{display:block}
+  .col.done .card.reveal .wrow{display:flex !important}
+  .col.done .card.reveal .ph{display:block !important}
+  .col.done .card.reveal .mn{display:block !important}
   /* 关闭遮挡时全部常显 */
   .col.done .card.show-w .wrow{display:flex}
   .col.done .card.show-ph .ph{display:block}
@@ -140,6 +140,8 @@
   .nb-item.reveal .mn{display:block !important}
   .nb-item .hint{display:inline-block;font-size:11px;color:#9ca3af;margin-top:2px}
   .nb-item.reveal .hint{display:none !important}
+
+  .card .body,.nb-item .body{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 </style>
 </head>
 <body>
