@@ -86,6 +86,7 @@
   .card .quick:hover{background:#f3f4f6}
   .card .star{position:absolute;right:8px;bottom:8px;border:none;background:transparent;cursor:pointer;font-size:14px;color:#d1d5db}
   .card .star.on{color:#f59e0b}
+  .pos{display:inline-block;font-style:italic;color:#9ca3af;margin-right:5px;font-size:12px}
   .card .edit{position:absolute;right:34px;bottom:8px;border:none;background:transparent;
     cursor:pointer;font-size:13px;color:#d1d5db;padding:0 2px;line-height:1}
   .card .edit:hover{color:var(--primary)}
@@ -592,9 +593,15 @@ function makeCard(w, isDone) {
     phEl.classList.add('no-data');
   }
   const mnEl = body.querySelector('.mn');
+  if (w.pos) {
+    const ps = document.createElement('span');
+    ps.className = 'pos';
+    ps.textContent = w.pos;
+    mnEl.appendChild(ps);
+  }
   if (w.meaning) {
-    mnEl.textContent = w.meaning;
-  } else {
+    mnEl.appendChild(document.createTextNode(w.meaning));
+  } else if (!w.pos) {
     mnEl.textContent = '（无释义）';
     mnEl.classList.add('no-data');
   }
@@ -712,7 +719,14 @@ function renderNotebook() {
       '<div class="ph"></div><div class="mn"></div></div>';
     row.querySelector('.w').textContent = w.word;
     row.querySelector('.ph').textContent = w.phonetic || '';
-    row.querySelector('.mn').textContent = w.meaning || '';
+    const nbMn = row.querySelector('.mn');
+    if (w.pos) {
+      const ps2 = document.createElement('span');
+      ps2.className = 'pos';
+      ps2.textContent = w.pos;
+      nbMn.appendChild(ps2);
+    }
+    nbMn.appendChild(document.createTextNode(w.meaning || ''));
     applyShow(row, state.nbShow);
     attachReveal(row, row.querySelector('.body'), hiddenOf(state.nbShow));
     row.querySelector('.spk').addEventListener('click', (e) => { e.stopPropagation(); speak(w.word); });
@@ -913,7 +927,8 @@ const HEADER_MAP = {
   day: ['day', 'date', '日期', '天', '天数'],
   word: ['word', '单词', '词汇'],
   phonetic: ['phonetic', 'phonetics', '音标', '发音'],
-  meaning: ['meaning', '释义', '中文', '意思', '翻译', '中文释义']
+  meaning: ['meaning', '释义', '中文', '意思', '翻译', '中文释义'],
+  pos: ['pos', 'partofspeech', '词性', '词类', '词性标注']
 };
 
 function normalizeHeader(h) {
@@ -1279,13 +1294,22 @@ function parseRowsToWords(rows) {
         day: get('day'),
         word: sp.word || raw,
         phonetic: get('phonetic') || sp.phonetic,
+        pos: get('pos'),
         meaning: get('meaning') || sp.meaning
       };
     } else {
-      rec = { day: get('day'), word: raw, phonetic: get('phonetic'), meaning: get('meaning') };
+      rec = { day: get('day'), word: raw, phonetic: get('phonetic'), pos: get('pos'), meaning: get('meaning') };
     }
     if (!rec.word) continue;
-    out.push(rec);
+    // 拆词性：单词尾部 ,n. / 释义开头 v.
+    const ex = extractPos(rec.word, rec.meaning);
+    out.push({
+      day: rec.day,
+      word: ex.word || rec.word,
+      phonetic: rec.phonetic,
+      pos: (rec.pos || '') || ex.pos || '',
+      meaning: ex.meaning !== undefined ? ex.meaning : rec.meaning
+    });
   }
   if (!out.length) throw new Error('没有识别到有效单词行');
   return { words: out, hasHeader, map };
@@ -1413,7 +1437,7 @@ async function doImport(items, mask) {
       if (seen.has(id)) { skipped++; return; }
       seen.add(id);
       toPut.push({
-        id, day, word: w.word, phonetic: w.phonetic || '', meaning: w.meaning || '',
+        id, day, word: w.word, phonetic: w.phonetic || '', pos: w.pos || '', meaning: w.meaning || '',
         status: 'learning', folderId: null, createdAt: Date.now() + addedIds.length
       });
       addedIds.push(id);
@@ -1661,12 +1685,13 @@ function openWordEditor(w) {
     },
     onClick: (_, m) => {
       const g = k => m.querySelector('[data-k=' + k + ']').value;
-      saveWord(w, { day: g('day'), word: g('word'), phonetic: g('phonetic'), meaning: g('meaning') });
+      saveWord(w, { day: g('day'), word: g('word'), phonetic: g('phonetic'), pos: g('pos'), meaning: g('meaning') });
     }
   });
   openModal({
     title: isNew ? '添加单词' : '编辑单词',
-    bodyHTML: f('day', '日期 / 分组', '留空则用当前批次') + f('word', '单词') + f('phonetic', '音标') + f('meaning', '释义'),
+    bodyHTML: f('day', '日期 / 分组', '留空则用当前批次') + f('word', '单词') + f('phonetic', '音标') +
+      f('pos', '词性', 'n. / v. / adj.') + f('meaning', '释义'),
     actions: acts
   });
 }
@@ -1678,7 +1703,12 @@ async function saveWord(old, f) {
   const id = day + '|' + word;
   if ((!old || old.id !== id) && state.words.some(x => x.id === id)) return toast('该批次下已有同名单词');
   const base = old || { status: 'learning', folderId: null, createdAt: Date.now() };
-  const rec = Object.assign({}, base, { id, day, word, phonetic: (f.phonetic || '').trim(), meaning: (f.meaning || '').trim() });
+  const rec = Object.assign({}, base, {
+    id, day, word,
+    phonetic: (f.phonetic || '').trim(),
+    pos: (f.pos || '').trim(),
+    meaning: (f.meaning || '').trim()
+  });
   if (old && old.id !== id) await dbDeleteMany('words', [old.id]);
   await dbPutMany('words', [rec]);
   if (!state.batchNames.includes(day)) { state.batchNames.push(day); await saveBatchNames(); }
@@ -1699,8 +1729,8 @@ async function deleteWords(ids) {
 async function exportSheet() {
   const all = sortWords(await dbGetAll('words'));
   const folders = new Map((await dbGetAll('notebooks')).map(f => [f.id, f.name]));
-  const rows = [['日期', '单词', '音标', '释义', '状态', '生词本']].concat(all.map(w => [
-    w.day, w.word, w.phonetic || '', w.meaning || '', w.status === 'done' ? '已完成' : '正在学',
+  const rows = [['日期', '单词', '音标', '词性', '释义', '状态', '生词本']].concat(all.map(w => [
+    w.day, w.word, w.phonetic || '', w.pos || '', w.meaning || '', w.status === 'done' ? '已完成' : '正在学',
     w.folderId ? (folders.get(w.folderId) || '') : '']));
   const stamp = new Date().toISOString().slice(0, 10);
   try {
@@ -1754,6 +1784,77 @@ function renameCurrentDay() {
   });
 }
 
+
+
+/* ============================ 词性 ============================ */
+/* 常见词性写法：n. v. vt. vi. adj. a. ad. adv. prep. conj. pron. num. art. int. aux. abbr. phr. */
+const POS_TOKEN = /^(?:n|v|vt|vi|adj|a|ad|adv|prep|conj|pron|num|art|int|aux|abbr|phr|pl|sing|复|不可数)\s*\.\s*/i;
+const POS_FULL = /^(?:名词|动词|及物动词|不及物动词|形容词|副词|介词|连词|代词|数词|冠词|感叹词|助动词|短语)\s*$/;
+
+function isPosLike(t) {
+  const x = String(t || '').trim();
+  if (!x) return false;
+  return POS_TOKEN.test(x) || POS_FULL.test(x);
+}
+
+/* 从 “v. 放弃” 这种释义里拆出词性；也从单词尾部 “presently ,ad.” 拆 */
+function extractPos(word, meaning) {
+  let w = String(word || '').trim();
+  let m = String(meaning || '').trim();
+  let pos = '';
+
+  // 1) 单词尾部带 ,n. /  n. 之类
+  const wm = w.match(/[\s,，]*(?:[,，]\s*)?((?:n|v|vt|vi|adj|a|ad|adv|prep|conj|pron|num|art|int|aux|abbr|phr)\s*\.)\s*$/i);
+  if (wm && w.length - wm[0].length >= 2) {
+    pos = wm[1].replace(/\s+/g, '').toLowerCase();
+    w = w.slice(0, w.length - wm[0].length).trim();
+    w = w.replace(/[\s,，]+$/, '');
+  }
+
+  // 2) 释义开头带词性
+  if (!pos && m) {
+    const mm = m.match(/^((?:n|v|vt|vi|adj|a|ad|adv|prep|conj|pron|num|art|int|aux|abbr|phr)\s*\.)\s*/i);
+    if (mm) {
+      pos = mm[1].replace(/\s+/g, '').toLowerCase();
+      m = m.slice(mm[0].length).trim();
+    } else {
+      const mf = m.match(/^(名词|动词|及物动词|不及物动词|形容词|副词|介词|连词|代词|数词|冠词|感叹词|助动词)\s*[：:，,]?\s*/);
+      if (mf) { pos = mf[1]; m = m.slice(mf[0].length).trim(); }
+    }
+  }
+
+  // 3) 释义里有多词性 “v. … n. …”，只取第一个
+  if (pos && m) {
+    m = m.replace(/^(?:n|v|vt|vi|adj|ad|adv|prep|conj|pron)\s*\.\s*/i, '');
+  }
+  return { word: w, pos, meaning: m };
+}
+
+
+/* 老数据迁移：把释义里的词性抽出来（只跑一次） */
+async function migratePos() {
+  try {
+    const done = await dbGet('meta', 'posMigrated');
+    if (done && done.v !== false) return;
+    const upd = [], del = [];
+    state.words.forEach(w => {
+      if (w.pos) return;
+      const ex = extractPos(w.word, w.meaning);
+      if (!ex.pos) return;
+      const nw = ex.word || w.word;
+      const nid = (w.day || '') + '|' + nw;
+      if (nid !== w.id) del.push(w.id);
+      upd.push(Object.assign({}, w, { id: nid, word: nw, pos: ex.pos, meaning: ex.meaning }));
+    });
+    if (del.length) await dbDeleteMany('words', del);
+    if (upd.length) await dbPutMany('words', upd);
+    await dbPutMany('meta', [{ k: 'posMigrated', v: true, count: upd.length }]);
+    if (upd.length) {
+      await reloadAll();
+      toast('已整理 ' + upd.length + ' 个单词的词性');
+    }
+  } catch (e) { console.error(e); }
+}
 
 /* ============================ 备份 ============================ */
 async function exportBackup(mode) {
@@ -2033,6 +2134,7 @@ function escapeAttr(s) { return escapeHtml(s); }
 (async function init() {
   bind();
   await reloadAll();
+  await migratePos();
 })();
 </script>
 </body>
